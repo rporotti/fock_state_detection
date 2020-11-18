@@ -19,6 +19,7 @@ from scipy.stats import entropy
 base_model=gym.Env
 import psutil
 import time
+import h5py
 
 
 class SimpleCavityEnv(base_model):
@@ -144,7 +145,15 @@ class SimpleCavityEnv(base_model):
             os.system("cp script_training.py "+self.direc+"/script")
             os.system("cp codes/environment/multichannel.py "+self.direc+"/script")
             print_info(dic,direc)
-
+        num_processes = MPI.COMM_WORLD.size
+        f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
+        dset = f.create_dataset('test', (num_processes, 2), dtype='f')
+        for i in range(num_processes):
+            if i % num_processes == rank:
+                #print("rank = {}, i = {}".format(rank, i))
+                data = [rank,np.random.rand()]
+                dset[i] = data
+        f.close()
         
         self.dic=dic
         self.N=dic["N"]

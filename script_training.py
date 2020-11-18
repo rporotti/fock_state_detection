@@ -4,7 +4,6 @@ import argparse
 from codes.common.parser import parser
 import numpy as np
 import sys
-from stable_baselines import PPO1
 from codes.environment.multichannel import SimpleCavityEnv
 import numpy as np
 import qutip as qt
@@ -18,7 +17,7 @@ args = parser.parse_args()
 
 import gym
 from stable_baselines.common.callbacks import EvalCallback, CallbackList
-from stable_baselines import PPO1, PPO2, DDPG,TRPO, SAC,TD3,DQN,ACKTR
+from stable_baselines import PPO2, DDPG,TRPO, SAC,TD3,DQN,ACKTR
 from stable_baselines.common import make_vec_env
 from stable_baselines.ddpg.policies import LnMlpPolicy
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
@@ -114,7 +113,7 @@ def main():
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=env.get_attr("direc")[0]+"/model")
 
 
-    model.learn(int(1E8),callback=checkpoint_callback)
+    model.learn(int(1E4),callback=checkpoint_callback)
 
 
 if __name__ == '__main__':

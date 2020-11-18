@@ -16,8 +16,8 @@
 #SBATCH --partition=standard
 #
 # Process management:
-#SBATCH --nodes=20
-#SBATCH --ntasks-per-node=32
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=1   # specify number of CPU cores (maximum: 32 on highfreq, 64 on highmem)
 #
 # Explicitly specify memory (default is maximum on node):
@@ -32,10 +32,9 @@
 
 # Load necessaru modules here
 
-module load cuda
-module load anaconda
+module load anaconda cuda
 
-source activate mpi5
+source activate conda_env
 
 # Set number of CPUs per tasks for OpenMP programs
 if [ ! -z $SLURM_CPUS_PER_TASK ] ; then
@@ -49,5 +48,10 @@ export SLURM_HINT=multithread
 
 # Run the program
 #srun python3 -m stable_baselines.ppo1.run_atari
+
+
 srun python script_training.py "$@" --mpi
+#srun python demo.py
+
+
 #srun python script_training.py --init_state 0 --target_state 3 --T_max 10 --meas_rate 0.5 --timesteps 50 --multiplier 1 --obs diagonal --substeps 10 --save_every 1
