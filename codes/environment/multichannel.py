@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import qutip as qt
-from codes.functions.functions import split_string, create_dir,print_info
+from codes.functions.functions import split_string, create_dir,create_info,print_info
 from qutip import tensor, fock
 from scipy import linalg
 import copy
@@ -67,13 +67,13 @@ class SimpleCavityEnv(base_model):
         self.observations2=np.zeros((self.T,2,self.N))
         if self.filter:
             self.observations_filters=np.zeros((self.T,self.size_filters,2,self.N,))
-        self.total_rewards=[]
+        self.total_rewards=[0]
         self.probs_final=[]
         self.total_success=[]
         self.success=0
         self.av_tries=np.zeros(self.save_every)
         self.integrals=np.zeros((self.T,2,self.N))
-        self.std_rewards=[]
+        self.std_rewards=[0]
         self.rews=[]
         self.successes=[]
 
@@ -134,26 +134,38 @@ class SimpleCavityEnv(base_model):
 
         self.folder=dic["folder"]
         self.mode=dic["mode"]
-        (info,direc)=create_dir(dic)
-        self.info=info
-        self.direc=direc
-        if self.viewer and self.counter==0 and self.rank==0 and self.mode!="jupyter":
-            os.makedirs(self.direc+"/script", exist_ok=True)
-            os.makedirs(self.direc+"/model")
-            os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
-            os.makedirs("simulations/"+self.folder+"/current", exist_ok=True)
-            os.system("cp script_training.py "+self.direc+"/script")
-            os.system("cp codes/environment/multichannel.py "+self.direc+"/script")
-            print_info(dic,direc)
-        num_processes = MPI.COMM_WORLD.size
-        f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
-        dset = f.create_dataset('test', (num_processes, 2), dtype='f')
-        for i in range(num_processes):
-            if i % num_processes == rank:
-                #print("rank = {}, i = {}".format(rank, i))
-                data = [rank,np.random.rand()]
-                dset[i] = data
-        f.close()
+        
+        if self.viewer and self.mode!="jupyter":
+            if self.counter==0 and self.rank==0: 
+                direc=create_dir(dic)
+                info=create_info(dic)
+                self.info=info
+                self.direc=direc
+                MPI.COMM_WORLD.bcast(direc, root=0)
+                MPI.COMM_WORLD.bcast(info, root=0)
+                os.makedirs(self.direc+"/script", exist_ok=True)
+                os.makedirs(self.direc+"/model", exist_ok=True)
+                os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
+                os.makedirs("simulations/"+self.folder+"/current", exist_ok=True)
+                os.system("cp script_training.py "+self.direc+"/script")
+                os.system("cp codes/environment/multichannel.py "+self.direc+"/script")
+                print_info(dic,direc)
+                
+
+
+            else:
+                self.direc = MPI.COMM_WORLD.bcast(None, root=0)
+                self.info = MPI.COMM_WORLD.bcast(None, root=0)
+
+        self.hf= h5py.File(self.direc+'/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
+        self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1  ),chunks=True  )
+        self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
+
+
+
+        
+
+
         
         self.dic=dic
         self.N=dic["N"]
@@ -174,7 +186,11 @@ class SimpleCavityEnv(base_model):
         psi_target=split_string(self.Nstates,dic["target_state"])
         self.Rho_target=psi_target.proj().full()
         
+        self.RL_steps=int(dic["RL_steps"])
+        num_processes = MPI.COMM_WORLD.size
         
+        
+
 
 
         self.dt=self.T_max/(self.T*self.numberPhysicsMicroSteps)
@@ -369,13 +385,13 @@ class SimpleCavityEnv(base_model):
             self.ep+=1
             self.done=True
             self.rews.append(np.sum(self.rewards))
-            if reward>0.8:
-                self.success=1
-            else:
-                self.success=0
 
-            if self.testing==False:
-                self.evaluate_policy()
+            self.hf["rewards"][self.rank] = np.sum(self.rewards)
+            self.hf["probs_fin"][self.rank] = self.fidelity 
+
+
+            if self.testing==False and self.rank==0:
+                self.render()
 
         return obs,reward, self.done, {}
 
@@ -521,6 +537,8 @@ class SimpleCavityEnv(base_model):
 
             self.ax_histo2.get_xaxis().set_visible(False)
             self.ax_histo2.get_yaxis().set_visible(False)
+            self.ax_histo2.set_ylabel("# cases")
+            self.ax_histo2.set_ylabel("Fidelity")
             self.ax_histo2.set_xlim(0,1)
             
 
@@ -569,12 +587,10 @@ class SimpleCavityEnv(base_model):
         self.tlist = np.linspace(0,self.T,self.T)
 
         appo=np.full(self.T,None)
-        x=np.linspace(1,self.ep*self.ntraj,len(self.total_rewards))
+        x=np.linspace(0,self.ep*self.ntraj,len(self.total_rewards))
         if self.testing is False:
             # self.ax_reward.plot([],[],marker="o",
             #                   markersize=2,markerfacecolor="blue",markeredgecolor="blue")
-            self.ax_success = self.ax_reward.twinx()
-            self.ax_success.step(x,self.total_success, color="red", alpha=0.5)
             self.ax_reward.plot(x,self.total_rewards)
         
             self.rects=self.ax_histo1.barh(np.flip(np.arange(0,self.Nstates)),np.flip(self.probabilities[:,-1]),align="center")
@@ -676,29 +692,36 @@ class SimpleCavityEnv(base_model):
         self.axes[0,0].set_ylim(-1.1*np.max(np.abs(self.actions_plot)),np.max(np.abs(self.actions_plot))*1.1)
 
         if self.testing is False:
-
+            total_rewards=np.mean(self.hf["rewards"][:,0],axis=0)
+            std_rewards=np.std(self.hf["rewards"][:,0],axis=0)
+            probs_fin=self.hf["probs_fin"][:,0]
+            self.total_rewards.append(total_rewards)
+            self.std_rewards.append(std_rewards)
             x=np.linspace(1,self.ep*self.ntraj,len(self.total_rewards))
             self.ax_reward.lines[0].set_data(x,self.total_rewards)
             self.ax_reward.set_ylim(0,max(self.total_rewards)+1)
             self.ax_reward.set_xlim(1,self.ep*self.ntraj)
-            #self.ax_reward.collections.clear()
-            # self.ax_reward.fill_between(x,
-            #     np.array(self.total_rewards)-np.array(self.std_rewards),np.array(self.total_rewards)+np.array(self.std_rewards), alpha=0.2, color="blue")
-            # self.ax_reward.set_ylim(min(np.array(self.total_rewards)-np.array(self.std_rewards)),
-            #                         max(np.array(self.total_rewards)+np.array(self.std_rewards)))
+            self.ax_reward.collections.clear()
+            self.ax_reward.fill_between(x,
+                np.subtract(self.total_rewards,self.std_rewards),np.add(self.total_rewards,self.std_rewards), alpha=0.2, color="blue")
+            self.ax_reward.set_ylim(0,
+                                    max(np.add(self.total_rewards,self.std_rewards)))
 
 
-            self.ax_success.lines[0].set_xdata(x)
-            self.ax_success.lines[0].set_ydata(self.total_success)
-            self.ax_success.set_ylim(0,1.1)
-            self.ax_success.set_xlim(1,self.ep*self.ntraj)
+            
 
             for rect, w in zip(self.rects, np.flip(self.probabilities[:,-1])):
                 rect.set_width(w)
-            self.ax_histo2.cla()
+
             #print(np.array(self.probs_final))
             bins=200
-            out=self.ax_histo2.hist(np.array(self.probs_final)[-bins:],bins=20,range=(0,1),density=True)
+            
+            
+            
+            print(probs_fin,np.shape(probs_fin))
+            self.ax_histo2.cla()
+            self.probs_final.append(probs_fin)
+            out=self.ax_histo2.hist(probs_fin,bins=20,range=(0,1),density=True)
             self.ax_histo2.set_xlim(0,1)
                 
            

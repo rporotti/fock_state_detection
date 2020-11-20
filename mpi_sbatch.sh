@@ -17,7 +17,7 @@
 #
 # Process management:
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
+#SBATCH --ntasks-per-node=20
 #SBATCH --cpus-per-task=1   # specify number of CPU cores (maximum: 32 on highfreq, 64 on highmem)
 #
 # Explicitly specify memory (default is maximum on node):

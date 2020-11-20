@@ -113,7 +113,7 @@ def main():
     checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=env.get_attr("direc")[0]+"/model")
 
 
-    model.learn(int(1E4),callback=checkpoint_callback)
+    model.learn(int(args.RL_steps),callback=checkpoint_callback)
 
 
 if __name__ == '__main__':

@@ -66,7 +66,7 @@ parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--lam', type=float, default=0.95)
 parser.add_argument('--adam_epsilon', type=float, default=1e-05)
 
-
+parser.add_argument('--RL_steps', type=float, default=1E6)
 
 
 #args = parser.parse_args()

@@ -7,50 +7,15 @@ import qutip as qt
 from mpi4py import MPI
 
 def create_dir(args):
+    
+    info=create_info(args)
+    
+    
     rank = MPI.COMM_WORLD.Get_rank()
     mode=args["mode"]
     folder=args["folder"]
     hour=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
-    now=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y_%H.%M.%S")
-    date=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y")
 
-
-
-    info="cavity"
-    appo=""
-    exclude_list=["HER","animation","load_parameters","same",
-     "mode","mpi", "lstm","stop_best","fixed_seed", "folder","filter","discrete","capped_to_zero"]
-    for i in range(1,len(sys.argv)):
-        if sys.argv[i].startswith("--"):
-            line=sys.argv[i].split("--")[1]
-            if line not in exclude_list:
-                appo+="_"+line+sys.argv[i+1]
-            if line=="lstm":
-                appo+="_lstm"
-    if appo=="":
-        appo="_standard"
-    info+=appo+"_"+date
-
-    if args["HER"]:
-        info+="_HER"
-    # for key in args:
-    #     if key!="additional_info": info+=key+str(args[key])+"_"
-    #     else: info+=str(args["additional_info"])
-
-    _add=""
-#     if args["library"]=="SU":
-#         if folder is not "":
-#             direc="../simulations/SU_"+folder+"_"+info
-#         else:
-#             direc="../simulations/SU_"+info
-# #            version=""
-#             if os.path.isdir(direc):
-#                 _add=now
-# #                i=2
-# #                while os.path.isdir(direc+"_v"+str(i)):
-# #                    i+=1
-# #                version="_v"+str(i)
-# #            direc+=version
 
     if args["library"]=="SB":
         if mode!="cluster":
@@ -78,7 +43,41 @@ def create_dir(args):
         
 
 
-    return (info,direc)
+    return direc
+
+
+
+def create_info(args):
+    rank = MPI.COMM_WORLD.Get_rank()
+    mode=args["mode"]
+    folder=args["folder"]
+    hour=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
+    now=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y_%H.%M.%S")
+    date=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y")
+
+    info="cavity"
+    appo=""
+    exclude_list=["HER","animation","load_parameters","same",
+     "mode","mpi", "lstm","stop_best","fixed_seed", "folder","filter","discrete","capped_to_zero"]
+    for i in range(1,len(sys.argv)):
+        if sys.argv[i].startswith("--"):
+            line=sys.argv[i].split("--")[1]
+            if line not in exclude_list:
+                appo+="_"+line+sys.argv[i+1]
+            if line=="lstm":
+                appo+="_lstm"
+    if appo=="":
+        appo="_standard"
+    info+=appo+"_"+date
+
+    if args["HER"]:
+        info+="_HER"
+
+    return info
+
+
+
+
 
 def print_info(args, direc, rank=0):
     if rank==0:
