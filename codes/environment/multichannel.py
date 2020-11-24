@@ -20,7 +20,7 @@ base_model=gym.Env
 import psutil
 import time
 import h5py
-
+import multiprocessing
 
 class SimpleCavityEnv(base_model):
     def __init__(self,*args,testing=False,viewer=True,counter=0):
@@ -135,14 +135,20 @@ class SimpleCavityEnv(base_model):
         self.folder=dic["folder"]
         self.mode=dic["mode"]
         
+        self.mpi=dic["mpi"]
+        if self.mpi==True:
+            self.ntraj=MPI.COMM_WORLD.Get_size()
+        else:
+            self.ntraj=dic["ntraj"]
+            
+            
         if self.viewer and self.mode!="jupyter":
             if self.counter==0 and self.rank==0: 
                 direc=create_dir(dic)
                 info=create_info(dic)
                 self.info=info
                 self.direc=direc
-                MPI.COMM_WORLD.bcast(direc, root=0)
-                MPI.COMM_WORLD.bcast(info, root=0)
+
                 os.makedirs(self.direc+"/script", exist_ok=True)
                 os.makedirs(self.direc+"/model", exist_ok=True)
                 os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
@@ -152,15 +158,28 @@ class SimpleCavityEnv(base_model):
                 print_info(dic,direc)
                 
 
-
+        if self.mpi:
+            if rank==0:
+                MPI.COMM_WORLD.bcast(direc, root=0)
+                MPI.COMM_WORLD.bcast(info, root=0)
             else:
                 self.direc = MPI.COMM_WORLD.bcast(None, root=0)
                 self.info = MPI.COMM_WORLD.bcast(None, root=0)
 
-        self.hf= h5py.File(self.direc+'/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
-        self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1  ),chunks=True  )
-        self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
+            self.hf= h5py.File(self.direc+'/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
+            self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1  ),chunks=True  )
+            self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
+        else:
+            print(multiprocessing.current_process())
 
+            if self.counter==0:
+                q = multiprocessing.Queue()
+                q.put("ciao")
+            else:
+                q = multiprocessing.Queue()
+                event = q.get(block=True, timeout=10)
+                print(event)
+            q.close()
 
 
         
@@ -187,7 +206,7 @@ class SimpleCavityEnv(base_model):
         self.Rho_target=psi_target.proj().full()
         
         self.RL_steps=int(dic["RL_steps"])
-        num_processes = MPI.COMM_WORLD.size
+        
         
         
 
@@ -205,11 +224,7 @@ class SimpleCavityEnv(base_model):
 #             self.summary = open("../simulations/"+self.folder+"/summary.txt","a",os.O_NONBLOCK)
 #             self.summary.write(self.info+"\t")
 #             self.summary.close()
-        self.mpi=dic["mpi"]
-        if self.mpi==True:
-            self.ntraj=MPI.COMM_WORLD.Get_size()
-        else:
-            self.ntraj=dic["ntraj"]
+
 
     def reset(self):
         if self.mode_init=="random":

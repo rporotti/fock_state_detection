@@ -32,10 +32,9 @@
 
 # Load necessary modules here
 
-module load cuda
-module load anaconda
+module load anaconda cuda
 
-source activate mpi5
+source activate conda_env
 
 python script_training.py "$@"
 

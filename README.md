@@ -5,3 +5,8 @@ Usage:
 - hyper_search.sh for hyperparameters search across parameters
 
 For help on the parameters: python script_training.py --help
+
+
+
+To save the conda env: conda env --name conda_env export > env.yml
+To restore the conda env: conda env create -f=env.yml
