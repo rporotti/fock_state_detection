@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import gym
+gym.logger.set_level(40)
 import numpy as np
 import qutip as qt
 from codes.functions.functions import split_string, create_dir,create_info,print_info
@@ -26,7 +27,7 @@ class SimpleCavityEnv(gym.Env):
 
 
 
-        if queue: self.queue=queue
+        if queue is not None: self.queue=queue
         self.init_var(args,dataset)
         self.init_operators()
         self.set_placeholders()
@@ -79,21 +80,21 @@ class SimpleCavityEnv(gym.Env):
         if self.discrete:
             self.action_space = gym.spaces.Discrete(5)
         else:
-            self.action_space = gym.spaces.Box(low=-1, high=1,shape=(self.num_actions,),dtype=np.float32 )
+            self.action_space = gym.spaces.Box(low=-1., high=1.,shape=(self.num_actions,),dtype=np.float32 )
         if self.obs=="measure":
             if self.meas_type=="homodyne":
                 self.MsmtTrace=np.zeros((self.last_timesteps,2,self.N))
                 if self.filter:
                     self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.last_timesteps,self.size_filters,2,self.N))
                 else:
-                    self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.last_timesteps,2,self.N))
+                    self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.last_timesteps,2,self.N),dtype=np.float32)
                 #self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.N,))
             if self.meas_type=="heterodyne":
                 self.MsmtTrace=np.zeros((self.last_timesteps,2,self.N))
-                self.observation_space = gym.spaces.Box(low=-10, high=10, shape=(self.last_timesteps,2,self.N))
+                self.observation_space = gym.spaces.Box(low=-10, high=10, shape=(self.last_timesteps,2,self.N),dtype=np.float32)
         if self.obs=="density_matrix":
             self.MsmtTrace=np.zeros((self.last_timesteps,1,self.N))
-            self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(2*self.Nstates*self.Nstates,),dtype=np.float32 )
+            self.observation_space = gym.spaces.Box(low=-1., high=1., shape=(2*self.Nstates*self.Nstates,),dtype=np.float32 )
         if self.obs=="diagonal":
             self.MsmtTrace=np.zeros((self.last_timesteps,1,self.N))
             self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(self.Nstates,),dtype=np.float32 )
@@ -108,6 +109,7 @@ class SimpleCavityEnv(gym.Env):
         self.aOp=self.a.full()
         self.adOp=self.ad.full()
         self.adaOp=np.matmul(self.adOp,self.aOp)
+        self.aadOp = np.matmul(self.aOp, self.adOp)
         self.adaOp_square=np.matmul(self.adaOp,self.adaOp)
         self.a_plus_ad_Op=self.aOp+self.adOp
 
@@ -168,14 +170,15 @@ class SimpleCavityEnv(gym.Env):
             self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
 
         else:
-            if self.counter == 0:
-                for _ in range(self.ntraj):
-                    self.queue.put(self.direc)
+            if not self.testing:
+                if self.counter == 0:
+                    for _ in range(self.ntraj):
+                        self.queue.put(self.direc)
 
-            else:
-                self.direc = self.queue.get()
-            self.arr = np.frombuffer(dataset, dtype=np.float64).reshape(self.ntraj, 3)
-            self.queue.close()
+                else:
+                    self.direc = self.queue.get()
+                self.arr = np.frombuffer(dataset, dtype=np.float64).reshape(self.ntraj, 3)
+                self.queue.close()
 
             # print(multiprocessing.current_process())
 
@@ -190,6 +193,7 @@ class SimpleCavityEnv(gym.Env):
         self.Nstates=dic["Nstates"] # Hilbert space
         self.kappa=dic["decay"] # non-observed decay
         self.kappa_meas=dic["meas_rate"] # measured channel
+        self.kappa_dephasing = dic["dephasing"]  # measured channel
         self.numberPhysicsMicroSteps=dic["substeps"] # micro steps per action/RL step
         self.T=dic["timesteps"] # total time span
         self.T_max=dic["T_max"]
@@ -298,6 +302,7 @@ class SimpleCavityEnv(gym.Env):
 
 
             decay=0
+            dephasing=0
             if self.kappa>0:
                 k1=self.dt*self.kappa*( np.matmul(self.aOp,np.matmul(self.Rho,self.adOp)) -
                         0.5*(np.matmul(self.adaOp,self.Rho)+np.matmul(self.Rho,self.adaOp) ))
@@ -309,11 +314,21 @@ class SimpleCavityEnv(gym.Env):
                         0.5*(np.matmul(self.adaOp,self.Rho+k3)+np.matmul(self.Rho+k3,self.adaOp) ))
                 decay=1/6*(k1+2*k2+2*k3+k4)
 
+            if self.kappa_dephasing > 0:
+                k1=self.dt*self.kappa_dephasing*( np.matmul(self.adaOp,np.matmul(self.Rho,self.aadOp)) -
+                        0.5*(np.matmul(np.matmul(self.aadOp,self.adaOp),self.Rho)+np.matmul(self.Rho,np.matmul(self.aadOp,self.adaOp)) ))
+                k2=self.dt*self.kappa_dephasing*( np.matmul(self.adaOp,np.matmul(self.Rho+k1/2,self.aadOp)) -
+                        0.5*(np.matmul(np.matmul(self.aadOp,self.adaOp),self.Rho+k1/2)+np.matmul(self.Rho+k1/2,np.matmul(self.aadOp,self.adaOp)) ))
+                k3=self.dt*self.kappa_dephasing*( np.matmul(self.adaOp,np.matmul(self.Rho+k2/2,self.aadOp)) -
+                        0.5*(np.matmul(np.matmul(self.aadOp,self.adaOp),self.Rho+k2/2)+np.matmul(self.Rho+k2/2,np.matmul(self.aadOp,self.adaOp)) ))
+                k4=self.dt*self.kappa_dephasing*( np.matmul(self.adaOp,np.matmul(self.Rho+k3,self.aadOp)) -
+                        0.5*(np.matmul(np.matmul(self.aadOp,self.adaOp),self.Rho+k3)+np.matmul(self.Rho+k3,np.matmul(self.aadOp,self.adaOp)) ))
+                dephasing=1/6*(k1+2*k2+2*k3+k4)
             #k=np.zeros((self.N,self.Nstates,self.Nstates),dtype=np.complex128)
 
             k_homodyne=0
             dissipator=0
-            if self.kappa_meas>0:
+            if self.kappa_meas>0.:
                 k1=self.dt/2*self.kappa_meas*(\
                     np.matmul(self.P[:],np.matmul(self.Rho,self.P[:])) -
                     0.5*(np.matmul(self.P[:],self.Rho)+np.matmul(self.Rho,self.P[:]) ))
@@ -339,22 +354,22 @@ class SimpleCavityEnv(gym.Env):
                 k_homodyne=1/6*(k1+2*k2+2*k3+k4)
 
 
-            if self.meas_type=="heterodyne":
-                k_heterodyne=0
-                k_heterodyne+=dissipator
+                if self.meas_type=="heterodyne":
+                    k_heterodyne=0
+                    k_heterodyne+=dissipator
 
-                dW=np.random.randn(self.N)*np.sqrt(self.dt)
-                temp=np.matmul(self.P[:],self.Rho)-np.matmul(self.Rho,self.P[:])
-                quadrature=np.real(np.trace(  temp ,axis1=1, axis2=2))
-                self.X[1]=np.sqrt(self.kappa_meas)*quadrature+dW/self.dt
-                k1=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho )
-                k2=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k1/2 )
-                k3=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k2/2 )
-                k4=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k3 )
-                k_heterodyne+=k1
+                    dW=np.random.randn(self.N)*np.sqrt(self.dt)
+                    temp=np.matmul(self.P[:],self.Rho)-np.matmul(self.Rho,self.P[:])
+                    quadrature=np.real(np.trace(  temp ,axis1=1, axis2=2))
+                    self.X[1]=np.sqrt(self.kappa_meas)*quadrature+dW/self.dt
+                    k1=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho )
+                    k2=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k1/2 )
+                    k3=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k2/2 )
+                    k4=-1j*np.sqrt(self.kappa_meas/2)*dW[:,np.newaxis,np.newaxis]*(temp - quadrature[:,np.newaxis,np.newaxis]*self.Rho+k3 )
+                    k_heterodyne+=k1
 
             
-            self.Rho+=unitary+np.sum(k_homodyne+dissipator,axis=0)+decay
+            self.Rho+=unitary+np.sum(k_homodyne+dissipator,axis=0)+decay+dephasing
             if self.meas_type=="heterodyne":
                 self.Rho+=np.sum(k_heterodyne,axis=0)
 
@@ -399,12 +414,13 @@ class SimpleCavityEnv(gym.Env):
             self.done=True
             self.rews.append(np.sum(self.rewards))
 
-            if self.mpi:
-                self.hf["rewards"][self.rank] = np.sum(self.rewards)
-                self.hf["probs_fin"][self.rank] = self.fidelity
-            else:
-                self.arr[self.counter,0]=np.sum(self.rewards)
-                self.arr[self.counter, 1] = self.fidelity
+            if not self.testing:
+                if self.mpi:
+                    self.hf["rewards"][self.rank] = np.sum(self.rewards)
+                    self.hf["probs_fin"][self.rank] = self.fidelity
+                else:
+                    self.arr[self.counter,0]=np.sum(self.rewards)
+                    self.arr[self.counter, 1] = self.fidelity
 
             if self.testing==False and self.rank==0 and self.counter==0:
                 self.render()
@@ -514,13 +530,15 @@ class SimpleCavityEnv(gym.Env):
 
 
 
-        #dpi=150
+        #
         lw=1
-        #plt.rcParams.update({'font.size': 3})
-        #plt.rcParams.update({'figure.dpi': dpi})
+
 
         if self.testing:
-            self.figure = plt.figure(figsize=(16,12),constrained_layout=True)
+            dpi = 150
+            plt.rcParams.update({'font.size': 9})
+            plt.rcParams.update({'figure.dpi': dpi})
+            self.figure = plt.figure(figsize=(8,6),constrained_layout=True)
             gs = self.figure.add_gridspec(4, 4)
             self.axes=np.zeros((3,4),dtype="object")
             self.axes_integral=np.zeros((3,4),dtype="object")
@@ -677,8 +695,8 @@ class SimpleCavityEnv(gym.Env):
                             alpha=0.9,interpolation="none",
                         extent=(0,self.T, 0, self.Nstates))
 
-
-        self.figure.suptitle('\n'.join(wrap(json.dumps(self.dic), 200)), fontsize=4)
+        if not self.testing:
+            self.figure.suptitle('\n'.join(wrap(json.dumps(self.dic), 200)), fontsize=4)
 
         #plt.show(block=False)
 

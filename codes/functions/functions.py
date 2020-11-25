@@ -103,7 +103,6 @@ def split_string(N_states,s):
         return qt.basis(N_states,int(s))
     else:
         l=s.split("+")
-        print(l)
         state=0
         for item in l:
             state+=qt.basis(N_states,int(item))

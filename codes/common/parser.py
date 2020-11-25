@@ -9,6 +9,7 @@ parser.add_argument('--Nstates', type=int, default=15, help='Size of Hilbert spa
 parser.add_argument('--meas', default="homodyne", help='homodyne or heterodyne')
 parser.add_argument('--decay', type=float, default=0, help='Decay rate (default at 0)')
 parser.add_argument('--meas_rate', type=float, default=25.0, help='Measurement rate (default at 0)')
+parser.add_argument('--dephasing', type=float, default=0, help='Dephasing rate (default at 0)')
 parser.add_argument('--N', type=int, default=8, help='Output channels')
 parser.add_argument('--chi', type=int, default=1)
 
