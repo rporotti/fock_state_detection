@@ -16,10 +16,10 @@
 #SBATCH --partition=standard
 #
 # Process management:
-#SBATCH --array=0-375%100
+#SBATCH --array=0-10
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=8   # specify number of CPU cores (maximum: 32 on highfreq, 64 on highmem)
+#SBATCH --cpus-per-task=1   # specify number of CPU cores (maximum: 32 on highfreq, 64 on highmem)
 #
 # Explicitly specify memory (default is maximum on node):
 #SBATCH --mem=64GB
@@ -33,10 +33,9 @@
 
 # Load necessary modules here
 
-module load cuda
 module load anaconda
 
-source activate mpi5
+source activate conda_env
 
 
 
@@ -52,7 +51,7 @@ for val5 in "${meas_rate[@]}"; do
  #echo $count; echo $SLURM_ARRAY_TASK_ID
  if [ $count = $SLURM_ARRAY_TASK_ID ]
  then
-   command="python script_training.py --init_state 0 --target_state 2 --T_max 1 --meas_rate $val5 --timesteps 100 --multiplier $val3 --obs density_matrix --substeps 10 --save_every 5 --ntraj 128 --num_actions 2 --Nstates 15 --folder hyp_search_06_11_2020"
+   command="python script_training.py --init_state 0 --target_state 2 --T_max 1 --meas_rate $val5 --timesteps 100 --multiplier $val3 --obs density_matrix --substeps 10 --save_every 5 --ntraj 4 --num_actions 2 --Nstates 15 --folder hyp_search_prova2"
    #command+=" $val1"
    $command
  fi

@@ -27,12 +27,12 @@ class SimpleCavityEnv(gym.Env):
 
 
         if queue: self.queue=queue
-        self.init_var(args)
+        self.init_var(args,dataset)
         self.init_operators()
         self.set_placeholders()
         self.set_RL()
 
-        self.arr = np.frombuffer(dataset, dtype=np.float64).reshape(self.ntraj, 3)
+        
 
         self.ep=0
         self.epoch=0
@@ -43,7 +43,7 @@ class SimpleCavityEnv(gym.Env):
         self.draw=False
         self.steps=0
         self.figure=None
-        self.queue.close()
+        
         if self.viewer and self.counter==0 and self.rank==0:
             self.create_figure()
 
@@ -121,7 +121,7 @@ class SimpleCavityEnv(gym.Env):
 
 
 
-    def init_var(self,args):
+    def init_var(self,args,dataset):
         rank = MPI.COMM_WORLD.Get_rank()
         self.rank=rank
         if isinstance(args[0],dict) is False:
@@ -148,8 +148,9 @@ class SimpleCavityEnv(gym.Env):
 
                 os.makedirs(self.direc+"/script", exist_ok=True)
                 os.makedirs(self.direc+"/model", exist_ok=True)
-                os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
-                os.makedirs("simulations/"+self.folder+"/current", exist_ok=True)
+                if self.folder!="":
+                    os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
+                    os.makedirs("simulations/"+self.folder+"/current", exist_ok=True)
                 os.system("cp script_training.py "+self.direc+"/script")
                 os.system("cp codes/environment/multichannel.py "+self.direc+"/script")
                 print_info(dic,direc)
@@ -173,8 +174,8 @@ class SimpleCavityEnv(gym.Env):
 
             else:
                 self.direc = self.queue.get()
-
-
+            self.arr = np.frombuffer(dataset, dtype=np.float64).reshape(self.ntraj, 3)
+            self.queue.close()
 
             # print(multiprocessing.current_process())
 
@@ -776,13 +777,13 @@ class SimpleCavityEnv(gym.Env):
         if self.mode=="script":
             self.figure.savefig(self.direc + "/"+ str(self.epoch)+ "_reward.png")
             if self.testing is False:
-                if self.ep%self.save_every==0:
+                if self.epoch%5==0:
                     if self.folder!="":
-                        a_file= open("../simulations/"+self.folder+"/summaries/summary_"+self.info+".txt","w")
+                        a_file= open("simulations/"+self.folder+"/summaries/summary_"+self.info+".txt","w")
                         a_file.write(" ".join(str(np.round(item/20,3) ) for item in out[0]) )
                         a_file.close() 
-                            
-                        self.figure.savefig("../simulations/"+self.folder+"/current/current_status_"+self.info+".png")
+
+                        self.figure.savefig("simulations/"+self.folder+"/current/current_status_"+self.info+".png")
                 if self.total_rewards[-1]>self.best_reward:
                     self.best_reward=self.total_rewards[-1]
                     
