@@ -1,0 +1,39 @@
+
+# On Cluster
+
+module load anaconda gcc
+source activate env-test3 
+
+
+# TO INSTALL hdf5 1.10.7
+tar -xf hdf5-1.10.7.tar.gz 
+cd hdf5-1.10.7/
+CC=mpicc ./configure --prefix=/u/pori/.local --enable-shared --enable-parallel
+make && make install
+
+(/u/pori/.local/bin/h5pcc -showconfig )
+
+
+# TO INSTALL h5py
+CC=mpicc HDF5_MPI="ON"  HDF5_DIR=/u/pori/.local python -m pip install -v --no-cache-dir --no-binary=h5py h5py==3.0.0
+
+
+
+# content .bash_profile
+unset XDG_RUNTIME_DIR
+export QT_QPA_PLATFORM='offscreen'
+export PATH="/u/pori/.local/bin:$PATH"
+
+
+
+
+
+
+
+# On Mac
+
+https://gist.github.com/kentwait/280aa20e9d8f2c8737b2bec4a49b7c92
+
+conda install -c conda-forge "h5py>=2.9=mpi*"
+
+Test: mpirun -n 4 python -c "from mpi4py import MPI; import h5py; rank = MPI.COMM_WORLD.rank; f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD) "
