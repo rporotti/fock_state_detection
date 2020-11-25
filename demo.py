@@ -10,47 +10,6 @@ Small shell script to run timings with different numbers of MPI processes:
       /usr/bin/time --format="%e" mpirun -np $np python demo.py;
   done
 """
-import h5py
-from mpi4py import MPI
-
-import numpy as np
-
-
-# n = 10
-
-# num_processes = MPI.COMM_WORLD.size
-# rank = MPI.COMM_WORLD.rank  # The process ID (integer 0-3 for 4-process run)
-
-# np.random.seed(746574366 + rank)
-
-# f = h5py.File('parallel_test.hdf5', 'w', driver='mpio', comm=MPI.COMM_WORLD)
-# f.create_dataset('reward', (num_processes, n), dtype='f')
-# f.create_dataset('probs_fin', (num_processes, n), dtype='f')
-
-# for j in range(n):
-#    f["reward"][rank,j] = j+1
-# f["probs_fin"][rank,0] = np.random.rand()
-
-# f.close()
-
-
-
-
-# comm = MPI.COMM_WORLD
-# rank = comm.Get_rank()
-
-# if rank == 0:
-#     data = "ciao"
-#     data = comm.bcast(data, root=0)
-# elif rank>0:
-#     data=None
-    
-# data = comm.bcast(data, root=0)
-# print(data)
-
-
-
-
 
 import gym
 base_model=gym.Env
@@ -174,39 +133,63 @@ def available_cpu_cores():
 
     
 import time
+import h5py
     
     
     
 class BaseEnv(gym.Env):
 
-    def __init__(self,counter=0,q=None):
-        super(BaselEnv, self).__init__()
+    def __init__(self,counter=0,q=None, arr=None,n_envs=1):
+        super(BaseEnv, self).__init__()
         self.counter=counter
         self.queue=q
+        self.arr=np.frombuffer(arr, dtype=np.float64).reshape(n_envs,3)
         
         if self.counter==0:
-            self.queue.put("Hello")
+            self.dic="Hello"
+            for _ in range(n_envs):
+                self.queue.put("Hello")
+
+            #self.hf.create_dataset('rewards', (n_envs, 1), chunks=True)
+
         else:
-            print(self.queue.get())
+            self.dic=self.queue.get()
+
+        print(self.counter, self.dic)
+        self.func()
+        while not np.all(self.arr[:,1]): True
+        if self.counter==0:
+            self.render()
         #print(multiprocessing.current_process())
-        time.sleep(0.1)
 
 
+    def func(self):
+        if self.counter>5:
+            self.arr[self.counter,0]=self.counter
+        self.arr[self.counter, 1] = True
 
+    def render(self):
+        for i in range(10):
+            print(self.arr[i,0])
+        self.arr[:, 1] = False
 from stable_baselines.common.vec_env import SubprocVecEnv
 import multiprocessing
 
 
 
-def make_env(counter,q):
+def make_env(counter,q, arr, n_envs):
     def _init():
-        env = BaseEnv(counter,q)
+        env = BaseEnv(counter,q, arr, n_envs)
         return env
     return _init
     
     
 if __name__ == '__main__':
-    n_envs = 4
+    n_envs = 10
+    import numpy as np
     q = multiprocessing.Queue()
-    env = SubprocVecEnv([make_env(i, q) for i in range(n_envs)])
+    # Wrap X as an numpy array so we can easily manipulates its data.
+    dataset = multiprocessing.RawArray('d', n_envs*3)
+
+    env = SubprocVecEnv([make_env(i, q, X_np, n_envs) for i in range(n_envs)],start_method="fork")
     

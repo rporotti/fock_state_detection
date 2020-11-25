@@ -1,8 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')
 import gym
 import numpy as np
 import qutip as qt
 from codes.functions.functions import split_string, create_dir,create_info,print_info
-from qutip import tensor, fock
 from scipy import linalg
 import copy
 import scipy
@@ -11,20 +12,12 @@ from textwrap import wrap
 import json
 from mpi4py import MPI
 import os
-from collections import OrderedDict
-from matplotlib.ticker import MaxNLocator
-import sys
-from scipy.signal import lfilter
-from scipy.stats import entropy
 base_model=gym.Env
-import psutil
-import time
 import h5py
-import multiprocessing
 
-class SimpleCavityEnv(base_model):
-    def __init__(self,*args,testing=False,viewer=True,counter=0):
-        #physics
+class SimpleCavityEnv(gym.Env):
+    def __init__(self,*args,testing=False,viewer=True,dataset=None,queue=None,counter=0):
+        super(SimpleCavityEnv, self).__init__()
         self.testing=testing
         self.counter=counter
         self.viewer=viewer
@@ -32,12 +25,14 @@ class SimpleCavityEnv(base_model):
         self.count=0
 
 
+
+        if queue: self.queue=queue
         self.init_var(args)
         self.init_operators()
         self.set_placeholders()
         self.set_RL()
-        
 
+        self.arr = np.frombuffer(dataset, dtype=np.float64).reshape(self.ntraj, 3)
 
         self.ep=0
         self.epoch=0
@@ -48,6 +43,7 @@ class SimpleCavityEnv(base_model):
         self.draw=False
         self.steps=0
         self.figure=None
+        self.queue.close()
         if self.viewer and self.counter==0 and self.rank==0:
             self.create_figure()
 
@@ -149,6 +145,7 @@ class SimpleCavityEnv(base_model):
                 self.info=info
                 self.direc=direc
 
+
                 os.makedirs(self.direc+"/script", exist_ok=True)
                 os.makedirs(self.direc+"/model", exist_ok=True)
                 os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
@@ -165,21 +162,21 @@ class SimpleCavityEnv(base_model):
             else:
                 self.direc = MPI.COMM_WORLD.bcast(None, root=0)
                 self.info = MPI.COMM_WORLD.bcast(None, root=0)
-
             self.hf= h5py.File(self.direc+'/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
             self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1  ),chunks=True  )
             self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
-        else:
-            print(multiprocessing.current_process())
 
-            if self.counter==0:
-                q = multiprocessing.Queue()
-                q.put("ciao")
+        else:
+            if self.counter == 0:
+                for _ in range(self.ntraj):
+                    self.queue.put(self.direc)
+
             else:
-                q = multiprocessing.Queue()
-                event = q.get(block=True, timeout=10)
-                print(event)
-            q.close()
+                self.direc = self.queue.get()
+
+
+
+            # print(multiprocessing.current_process())
 
 
         
@@ -401,11 +398,14 @@ class SimpleCavityEnv(base_model):
             self.done=True
             self.rews.append(np.sum(self.rewards))
 
-            self.hf["rewards"][self.rank] = np.sum(self.rewards)
-            self.hf["probs_fin"][self.rank] = self.fidelity 
+            if self.mpi:
+                self.hf["rewards"][self.rank] = np.sum(self.rewards)
+                self.hf["probs_fin"][self.rank] = self.fidelity
+            else:
+                self.arr[self.counter,0]=np.sum(self.rewards)
+                self.arr[self.counter, 1] = self.fidelity
 
-
-            if self.testing==False and self.rank==0:
+            if self.testing==False and self.rank==0 and self.counter==0:
                 self.render()
 
         return obs,reward, self.done, {}
@@ -534,16 +534,16 @@ class SimpleCavityEnv(base_model):
             self.ax_trace=self.figure.add_subplot(gs[0, :])
             offset=0
             self.axes[0,:]=self.figure.add_subplot(gs[1+offset, :])
-            
+
         else:
             self.ax_reward=self.figure.add_subplot(gs[0, :])
             self.ax_trace=self.figure.add_subplot(gs[1, :3])
             self.ax_histo1=self.figure.add_subplot(gs[1, -1])
-            
+
             self.ax_histo1.get_xaxis().set_visible(False)
             self.ax_histo1.get_yaxis().set_visible(False)
             self.ax_histo1.set_xlim(0,1)
-            
+
             self.ax_reward.set_xlabel('Trajectories')
             self.ax_reward.set_ylabel("Reward")
             offset=1
@@ -555,14 +555,14 @@ class SimpleCavityEnv(base_model):
             self.ax_histo2.set_ylabel("# cases")
             self.ax_histo2.set_ylabel("Fidelity")
             self.ax_histo2.set_xlim(0,1)
-            
 
 
 
 
-        
-        
-        
+
+
+
+
         for count in range(self.N):
             i=int(count/4)
             j=count%4
@@ -607,9 +607,9 @@ class SimpleCavityEnv(base_model):
             # self.ax_reward.plot([],[],marker="o",
             #                   markersize=2,markerfacecolor="blue",markeredgecolor="blue")
             self.ax_reward.plot(x,self.total_rewards)
-        
+
             self.rects=self.ax_histo1.barh(np.flip(np.arange(0,self.Nstates)),np.flip(self.probabilities[:,-1]),align="center")
-            
+
 
         self.ax_trace.plot(self.tlist, appo,lw=lw, color="black")
         if self.num_actions==1:
@@ -620,23 +620,23 @@ class SimpleCavityEnv(base_model):
             self.axes[0,0].step(self.tlist, appo,lw=lw,color="blue", label=r"$Im[\alpha]$")
             self.axes[0,0].set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
         self.axes[0,0].legend()
-        
+
         self.axes[0,0].set_xlabel("Timesteps");
         for count in range(self.N):
             i=int(count/4)
             j=count%4
-            
-            
+
+
 
             if self.filter:
                 self.axes[-2+i,j].plot(self.tlist, appo,lw=lw,alpha=0.3)
                 for l in range(self.size_filters):
                     self.axes[-2+i,j].plot(self.tlist, appo,lw=lw)
-            else:        
+            else:
                 self.axes[-2+i,j].plot(self.tlist, appo,lw=lw)
             self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
-            self.axes_integral[-2+i,j].plot([],[] ,color="red")   
-                    
+            self.axes_integral[-2+i,j].plot([],[] ,color="red")
+
             if self.meas_type=="heterodyne":
                 self.axes[-2+i,j].plot(self.tlist, appo,lw=lw, color="red")
             self.axes[-2+i,j].set_xlim(self.tlist[0],self.tlist[-1])
@@ -707,9 +707,14 @@ class SimpleCavityEnv(base_model):
         self.axes[0,0].set_ylim(-1.1*np.max(np.abs(self.actions_plot)),np.max(np.abs(self.actions_plot))*1.1)
 
         if self.testing is False:
-            total_rewards=np.mean(self.hf["rewards"][:,0],axis=0)
-            std_rewards=np.std(self.hf["rewards"][:,0],axis=0)
-            probs_fin=self.hf["probs_fin"][:,0]
+            if self.mpi:
+                total_rewards=np.mean(self.hf["rewards"][:,0],axis=0)
+                std_rewards=np.std(self.hf["rewards"][:,0],axis=0)
+                probs_fin=self.hf["probs_fin"][:,0]
+            else:
+                total_rewards = np.mean(self.arr[:,0])
+                std_rewards = np.std(self.arr[:,0])
+                probs_fin = self.arr[:,1]
             self.total_rewards.append(total_rewards)
             self.std_rewards.append(std_rewards)
             x=np.linspace(1,self.ep*self.ntraj,len(self.total_rewards))
@@ -733,7 +738,7 @@ class SimpleCavityEnv(base_model):
             
             
             
-            print(probs_fin,np.shape(probs_fin))
+
             self.ax_histo2.cla()
             self.probs_final.append(probs_fin)
             out=self.ax_histo2.hist(probs_fin,bins=20,range=(0,1),density=True)

@@ -1,31 +1,21 @@
 import gym
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 gym.logger.set_level(40)
-import argparse
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from codes.common.parser import parser
-import numpy as np
-import sys
 from codes.environment.multichannel import SimpleCavityEnv
-import numpy as np
-import qutip as qt
-import matplotlib.pyplot as plt
 from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecCheckNan, VecNormalize
 import matplotlib
 matplotlib.rcParams['figure.dpi']=300
 
 #args = parser.parse_args(args=[])
 args = parser.parse_args()
-
-import gym
-from stable_baselines.common.callbacks import EvalCallback, CallbackList
-from stable_baselines import PPO2, DDPG,TRPO, SAC,TD3,DQN,ACKTR
-from stable_baselines.common import make_vec_env
-from stable_baselines.ddpg.policies import LnMlpPolicy
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 
 
-import os
 import stable_baselines
-import tensorflow as tf
 import psutil
 import re
 
@@ -86,35 +76,39 @@ def available_cpu_cores():
 	raise RuntimeError
 
 
-
-
-def main():
-    if args.lstm==True:
-        policy=MlpLstmPolicy
-    else:
-        policy=MlpPolicy
-    
-
-    if args.mpi==True:
-        env=DummyVecEnv([lambda: SimpleCavityEnv(args)])
-
-        #env=SimpleCavityEnv(args)
-
-        model=stable_baselines.PPO1(policy, env, verbose=1)
-    else:
-        import functools
-        env=PinnedSubprocVecEnv([functools.partial(SimpleCavityEnv,args,counter=n) for n in range(args.ntraj)])
-        env=VecNormalize(env)
-        model=stable_baselines.PPO2(policy, env, verbose=1,nminibatches=args.ntraj)
-
-
-    from stable_baselines.common.callbacks import CheckpointCallback
-
-    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=env.get_attr("direc")[0]+"/model")
-
-
-    #model.learn(int(args.RL_steps),callback=checkpoint_callback)
+def make_env(args, d, q, i):
+    def _init():
+        env = SimpleCavityEnv(args, dataset=d, queue=q,counter=i)
+        return env
+    return _init
 
 
 if __name__ == '__main__':
-    main()
+    if args.lstm == True:
+        policy = MlpLstmPolicy
+    else:
+        policy = MlpPolicy
+
+    if args.mpi == True:
+        env = DummyVecEnv([lambda: SimpleCavityEnv(args)])
+        # env=SimpleCavityEnv(args)
+        model = stable_baselines.PPO1(policy, env, verbose=1)
+    else:
+        import functools
+        import multiprocessing
+
+        q = multiprocessing.Queue()
+        dataset = multiprocessing.RawArray('d', args.ntraj*3)
+        env = SubprocVecEnv([make_env(args, dataset, q, i) for i in range(args.ntraj)],start_method="fork")
+
+        #env = SubprocVecEnv([functools.partial(SimpleCavityEnv, args, queue=q, counter=n) for n in range(args.ntraj)],
+        #                    start_method="fork")
+        # env=VecNormalize(env)
+        model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj)
+
+    from stable_baselines.common.callbacks import CheckpointCallback
+
+    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=env.get_attr("direc")[0] + "/model")
+
+    model.learn(int(args.RL_steps),callback=checkpoint_callback)
+
