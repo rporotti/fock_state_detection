@@ -412,7 +412,7 @@ class SimpleCavityEnv(gym.Env):
 
         if self.t>=self.T:
             self.probs_final.append(   self.fidelity  )
-            self.ep+=1
+
             self.done=True
             self.rews.append(np.sum(self.rewards))
 
@@ -424,8 +424,9 @@ class SimpleCavityEnv(gym.Env):
                     self.arr[self.counter,0]=np.sum(self.rewards)
                     self.arr[self.counter, 1] = self.fidelity
 
-            if self.testing==False and self.rank==0 and self.counter==0:
+            if self.testing==False and self.rank==0 and self.counter==0 and self.ep%self.save_every==0:
                 self.render()
+            self.ep += 1
 
         return obs,reward, self.done, {}
 
@@ -536,7 +537,7 @@ class SimpleCavityEnv(gym.Env):
         lw=1
 
         dpi = 150
-        plt.rcParams.update({'font.size': 9})
+        plt.rcParams.update({'font.size': 8})
         plt.rcParams.update({'figure.dpi': dpi})
         self.figure = plt.figure(figsize=(8, 6), constrained_layout=True)
         self.axes = np.zeros((3, 4), dtype="object")
@@ -807,9 +808,9 @@ class SimpleCavityEnv(gym.Env):
 
 
         if self.mode=="script":
-            self.figure.savefig(self.direc + "/"+ str(self.epoch)+ "_reward.png")
+            self.figure.savefig(self.direc + "/"+ str(self.ep)+ "_reward.png")
             if self.testing is False:
-                if self.epoch%5==0:
+                if self.ep%self.save_every==0:
                     if self.folder!="":
                         a_file= open(self.main_folder+self.folder+"/summaries/summary_"+self.info+".txt","w")
                         a_file.write(" ".join(str(np.round(item/20,3) ) for item in out[0]) )
@@ -819,7 +820,7 @@ class SimpleCavityEnv(gym.Env):
                 if self.total_rewards[-1]>self.best_reward:
                     self.best_reward=self.total_rewards[-1]
                     
-        self.epoch+=1
+        #self.epoch+=1
         self.draw=False
             # self.draw=False
             # self.count=0
