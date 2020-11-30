@@ -133,6 +133,7 @@ class SimpleCavityEnv(gym.Env):
 
         self.folder=dic["folder"]
         self.mode=dic["mode"]
+        self.main_folder=dic["main_folder"]
         
         self.mpi=dic["mpi"]
         if self.mpi==True:
@@ -152,8 +153,8 @@ class SimpleCavityEnv(gym.Env):
                 os.makedirs(self.direc+"/script", exist_ok=True)
                 os.makedirs(self.direc+"/model", exist_ok=True)
                 if self.folder!="":
-                    os.makedirs("simulations/"+self.folder+"/summaries", exist_ok=True)
-                    os.makedirs("simulations/"+self.folder+"/current", exist_ok=True)
+                    os.makedirs(self.main_folder+self.folder+"/summaries", exist_ok=True)
+                    os.makedirs(self.main_folder+self.folder+"/current", exist_ok=True)
                 os.system("cp script_training.py "+self.direc+"/script")
                 os.system("cp codes/environment/multichannel.py "+self.direc+"/script")
                 print_info(dic,direc)
@@ -534,35 +535,27 @@ class SimpleCavityEnv(gym.Env):
         #
         lw=1
 
-
+        dpi = 150
+        plt.rcParams.update({'font.size': 9})
+        plt.rcParams.update({'figure.dpi': dpi})
+        self.figure = plt.figure(figsize=(8, 6), constrained_layout=True)
+        self.axes = np.zeros((3, 4), dtype="object")
+        self.axes_integral = np.zeros((3, 4), dtype="object")
         if self.testing:
-            dpi = 150
-            plt.rcParams.update({'font.size': 9})
-            plt.rcParams.update({'figure.dpi': dpi})
-            self.figure = plt.figure(figsize=(8,6),constrained_layout=True)
             gs = self.figure.add_gridspec(4, 8)
-            self.axes=np.zeros((3,4),dtype="object")
-            self.axes_integral=np.zeros((3,4),dtype="object")
             offset=0
         else:
-            self.figure = plt.figure(figsize=(8,6),constrained_layout=True)
             gs = self.figure.add_gridspec(5, 8)
-            self.axes=np.zeros((3,4),dtype="object")
-            self.axes_integral=np.zeros((3,4),dtype="object")
             offset = 1
 
         self.ax_trace = self.figure.add_subplot(gs[offset, :-2])
-        self.ax_histo1 = self.figure.add_subplot(gs[offset, -2:])
+        self.ax_histo1 = self.figure.add_subplot(gs[offset, -2])
         self.ax_histo1.get_xaxis().set_visible(False)
         self.ax_histo1.get_yaxis().set_visible(False)
         self.ax_histo1.set_xlim(0, 1)
         self.ax_histo1.set_ylim(0, self.Nstates)
 
-        # self.ax_histo3 = self.figure.add_subplot(gs[offset, -1])
-        # self.ax_histo3.get_xaxis().set_visible(False)
-        # self.ax_histo3.get_yaxis().set_visible(False)
-        # self.ax_histo3.set_xlim(0, 1)
-        # self.ax_histo3.set_ylim(0, self.Nstates)
+
         if self.testing:
             self.axes[0, :] = self.figure.add_subplot(gs[1 + offset, :])
         else:
@@ -623,7 +616,12 @@ class SimpleCavityEnv(gym.Env):
             self.ax_reward.plot(x,self.total_rewards)
 
 
-
+        self.ax_rew_ep = self.figure.add_subplot(gs[offset, -1])
+        # self.ax_rew_ep.get_xaxis().set_visible(False)
+        # self.ax_rew_ep.get_yaxis().set_visible(False)
+        self.ax_rew_ep.set_xlim(0,self.T)
+        self.ax_rew_ep.set_ylim(0, 1)
+        self.ax_rew_ep.plot(self.tlist,appo)
 
         self.ax_trace.plot(self.tlist, appo,lw=lw, color="black")
         if self.num_actions==1:
@@ -723,6 +721,9 @@ class SimpleCavityEnv(gym.Env):
         #self.axes[-3,2].lines[0].set_ydata(self.overlap)
         #self.axes[-3,2].lines[1].set_ydata(self.purity)
 
+
+        self.ax_rew_ep.lines[0].set_xdata(self.tlist)
+        self.ax_rew_ep.lines[0].set_ydata(self.rewards)
         # if self.measurement_operator is not None:
         #     self.axes[-2,3].lines[0].set_xdata(self.tlist)
         #     self.axes[-2,3].lines[0].set_ydata(self.meas)
@@ -810,11 +811,11 @@ class SimpleCavityEnv(gym.Env):
             if self.testing is False:
                 if self.epoch%5==0:
                     if self.folder!="":
-                        a_file= open("simulations/"+self.folder+"/summaries/summary_"+self.info+".txt","w")
+                        a_file= open(self.main_folder+self.folder+"/summaries/summary_"+self.info+".txt","w")
                         a_file.write(" ".join(str(np.round(item/20,3) ) for item in out[0]) )
                         a_file.close() 
 
-                        self.figure.savefig("simulations/"+self.folder+"/current/current_status_"+self.info+".png")
+                        self.figure.savefig(self.main_folder+self.folder+"/current/current_status_"+self.info+".png")
                 if self.total_rewards[-1]>self.best_reward:
                     self.best_reward=self.total_rewards[-1]
                     

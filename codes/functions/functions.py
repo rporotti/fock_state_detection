@@ -13,6 +13,7 @@ def create_dir(args):
     
     rank = MPI.COMM_WORLD.Get_rank()
     mode=args["mode"]
+    main_folder=args["main_folder"]
     folder=args["folder"]
     hour=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
 
@@ -20,12 +21,12 @@ def create_dir(args):
     if args["library"]=="SB":
         if mode!="cluster":
             if mode=="jupyter":
-                direc="simulations/jupyter_"+info
+                direc=main_folder+"jupyter_"+info
             if mode=="script":
                 if folder!="":
-                    direc="simulations/"+folder+"/"+info
+                    direc=main_folder+folder+"/"+info
                 else:
-                    direc="simulations/"+info
+                    direc=main_folder+info
                 if os.path.isdir(direc):
                     _add="_"+hour
 #                    i=2
@@ -33,7 +34,7 @@ def create_dir(args):
 #                        i+=1
 #                    info+="_v"+str(i)
         else:
-            direc="simulations_cluster/"
+            direc="../simulations_cluster/"
 
 
     if rank==0:

@@ -70,6 +70,9 @@ parser.add_argument('--adam_epsilon', type=float, default=1e-05)
 parser.add_argument('--RL_steps', type=float, default=1E6)
 
 
+
+parser.add_argument('--main_folder', type=str, default="../simulations/", help='Main folder')
+
 #args = parser.parse_args()
 
 # if (args.check_policy):
