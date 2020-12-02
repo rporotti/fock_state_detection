@@ -54,8 +54,7 @@ class SimpleCavityEnv(gym.Env):
         self.rewards = np.zeros(self.T)
         self.Rho_int = np.zeros(self.T, dtype=object)
         self.commut = np.zeros(self.T)
-        self.actions = np.zeros((self.T, self.num_actions))
-        self.actions_plot = np.zeros((2, self.T))
+        self.actions_plot = np.zeros((self.num_actions, self.T))
         self.overlap = np.zeros(self.T)
         self.probabilities = np.zeros((self.Nstates, self.T * self.numberPhysicsMicroSteps))
         self.phases = np.zeros((self.Nstates, self.T * self.numberPhysicsMicroSteps))
@@ -105,8 +104,7 @@ class SimpleCavityEnv(gym.Env):
         self.a = qt.destroy(self.Nstates)
         self.ad = qt.create(self.Nstates)
         self.P = np.zeros((self.N, self.Nstates, self.Nstates))
-        for n in range(self.N):
-            self.P[n, n, n] = 1
+        self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
 
         self.aOp = self.a.full()
         self.adOp = self.ad.full()
@@ -117,7 +115,7 @@ class SimpleCavityEnv(gym.Env):
 
         self.H0 = 0
         for n in range(self.N):
-            self.H0 += self.chi * np.dot(self.adaOp, self.P[n])
+            self.H0 += np.dot(self.adaOp, self.P[n])
 
         self.U0 = linalg.expm(-1j * self.dt * self.H0)
 
@@ -260,10 +258,16 @@ class SimpleCavityEnv(gym.Env):
         if self.discrete:
             action = self.multiplier * action / 5
         else:
+            action=np.array(action)
             if self.capped:
-                action = self.multiplier * (np.array(action) + 1) / 2
+                action[:2] *= self.multiplier
+                action[:2]+=1
+                action[:2]/=2
             else:
-                action = self.multiplier * np.array(action)
+                action[:2] *= self.multiplier
+            if self.num_actions>2:
+                chis=np.ceil(np.array(action)[2:]).clip(min=0)
+                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = chis
         if self.num_actions == 2:
             alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
         else:
@@ -271,7 +275,7 @@ class SimpleCavityEnv(gym.Env):
 
         self.H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
 
-        H = self.H_displacement
+        H = self.H_displacement+self.H0
 
         for step in range(self.numberPhysicsMicroSteps):
 
@@ -582,10 +586,9 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep.plot(self.tlist, appo)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
-        if self.num_actions == 1:
-            self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
-            self.axes[0, 0].set_ylabel(r"$|\alpha|$", labelpad=0);
-        if self.num_actions == 2:
+        self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
+        self.axes[0, 0].set_ylabel(r"$|\alpha|$", labelpad=0);
+        if self.num_actions > 1:
             self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$")
             self.axes[0, 0].step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$")
             self.axes[0, 0].set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
@@ -614,6 +617,8 @@ class SimpleCavityEnv(gym.Env):
                     self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
             else:
                 self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
+                if self.num_actions>2:
+                    self.axes[-2 + i, j].plot(self.tlist, appo, lw=2*lw, alpha=0.5, color="gray")
             # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
             # self.axes_integral[-2+i,j].plot([],[] ,color="red")
 
@@ -684,7 +689,7 @@ class SimpleCavityEnv(gym.Env):
         if self.num_actions == 2:
             self.axes[0, 0].lines[1].set_ydata(self.actions_plot[1, :])
 
-        self.axes[0, 0].set_ylim(-1.1 * np.max(np.abs(self.actions_plot)), np.max(np.abs(self.actions_plot)) * 1.1)
+        self.axes[0, 0].set_ylim(-1.1 * np.max(np.abs(self.actions_plot[:2])), np.max(np.abs(self.actions_plot[:2])) * 1.1)
         for rect, w in zip(self.rects, np.flip(self.probabilities[:, -1])):
             rect.set_width(w)
         # for rect, w in zip(self.rects2, np.flip(self.phases[:, -1])):
@@ -729,16 +734,21 @@ class SimpleCavityEnv(gym.Env):
             if self.filter:
                 for l in range(self.size_filters):
                     self.axes[-2 + i, j].lines[l + 1].set_ydata(self.observations_filters[:, l, 0, count])
+            if self.meas_type == "heterodyne":
+                self.axes[-2 + i, j].lines[1].set_ydata(self.observations[:, 1, count])
+            maxim = np.max(np.abs(self.observations))
+            self.axes[-2 + i, j].set_ylim(-maxim * 1.1, maxim * 1.1)
 
+
+            if self.num_actions>2:
+                self.axes[-2 + i, j].lines[-1].set_xdata(self.tlist)
+                self.axes[-2 + i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
             #
             # self.axes_integral[-2+i,j].lines[0].set_xdata(self.tlist )
             # self.axes_integral[-2+i,j].lines[0].set_ydata(np.array(self.integrals)[:,0,count] )
             # self.axes_integral[-2+i,j].set_ylim(-np.max(np.abs(self.integrals))-0.1,np.max(np.abs(self.integrals))+0.1)
             # print(np.mean(self.observations[:,0],axis=0))
-            if self.meas_type == "heterodyne":
-                self.axes[-2 + i, j].lines[1].set_ydata(self.observations[:, 1, count])
-            maxim = np.max(np.abs(self.observations))
-            self.axes[-2 + i, j].set_ylim(-maxim * 1.1, maxim * 1.1)
+
 
             # self.ax_reward.set_xlim(1,len(self.total_rewards))
 
