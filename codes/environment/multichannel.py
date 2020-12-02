@@ -299,24 +299,18 @@ class SimpleCavityEnv(gym.Env):
                 decay = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
             if self.kappa_dephasing > 0:
-                k1 = self.dt * self.kappa_dephasing * (np.matmul(self.adaOp, np.matmul(self.Rho, self.aadOp)) -
-                                                       0.5 * (np.matmul(np.matmul(self.aadOp, self.adaOp),
-                                                                        self.Rho) + np.matmul(self.Rho,
-                                                                                              np.matmul(self.aadOp,
-                                                                                                        self.adaOp))))
-                k2 = self.dt * self.kappa_dephasing * (np.matmul(self.adaOp, np.matmul(self.Rho + k1 / 2, self.aadOp)) -
-                                                       0.5 * (np.matmul(np.matmul(self.aadOp, self.adaOp),
-                                                                        self.Rho + k1 / 2) + np.matmul(
-                            self.Rho + k1 / 2, np.matmul(self.aadOp, self.adaOp))))
-                k3 = self.dt * self.kappa_dephasing * (np.matmul(self.adaOp, np.matmul(self.Rho + k2 / 2, self.aadOp)) -
-                                                       0.5 * (np.matmul(np.matmul(self.aadOp, self.adaOp),
-                                                                        self.Rho + k2 / 2) + np.matmul(
-                            self.Rho + k2 / 2, np.matmul(self.aadOp, self.adaOp))))
-                k4 = self.dt * self.kappa_dephasing * (np.matmul(self.adaOp, np.matmul(self.Rho + k3, self.aadOp)) -
-                                                       0.5 * (np.matmul(np.matmul(self.aadOp, self.adaOp),
-                                                                        self.Rho + k3) + np.matmul(self.Rho + k3,
-                                                                                                   np.matmul(self.aadOp,
-                                                                                                             self.adaOp))))
+                k1 = self.dt / 2 * self.kappa_dephasing * ( \
+                            np.matmul(self.P[:], np.matmul(self.Rho, self.P[:])) -
+                            0.5 * (np.matmul(self.P[:], self.Rho) + np.matmul(self.Rho, self.P[:])))
+                k2 = self.dt / 2 * self.kappa_dephasing * ( \
+                            np.matmul(self.P[:], np.matmul(self.Rho + k1 / 2, self.P[:])) -
+                            0.5 * (np.matmul(self.P[:], self.Rho + k1 / 2) + np.matmul(self.Rho + k1 / 2, self.P[:])))
+                k3 = self.dt / 2 * self.kappa_dephasing * ( \
+                            np.matmul(self.P[:], np.matmul(self.Rho + k2 / 2, self.P[:])) -
+                            0.5 * (np.matmul(self.P[:], self.Rho + k2 / 2) + np.matmul(self.Rho + k2 / 2, self.P[:])))
+                k4 = self.dt / 2 * self.kappa_dephasing * ( \
+                            np.matmul(self.P[:], np.matmul(self.Rho + k3 / 2, self.P[:])) -
+                            0.5 * (np.matmul(self.P[:], self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, self.P[:])))
                 dephasing = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
             # k=np.zeros((self.N,self.Nstates,self.Nstates),dtype=np.complex128)
 
@@ -369,9 +363,10 @@ class SimpleCavityEnv(gym.Env):
                                 temp - quadrature[:, np.newaxis, np.newaxis] * self.Rho + k3)
                     k_heterodyne += k1
 
-            self.Rho += unitary + np.sum(k_homodyne + dissipator, axis=0) + decay + dephasing
+            self.Rho += unitary + np.sum(k_homodyne + dissipator+dephasing, axis=0) + decay
             if self.meas_type == "heterodyne":
                 self.Rho += np.sum(k_heterodyne, axis=0)
+
 
             self.probabilities[:, int(self.t * self.numberPhysicsMicroSteps + step)] = np.abs(np.diag(self.Rho))
             self.phases[:, int(self.t * self.numberPhysicsMicroSteps + step)] = np.angle(np.diag(self.Rho))
