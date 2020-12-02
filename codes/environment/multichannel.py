@@ -266,8 +266,8 @@ class SimpleCavityEnv(gym.Env):
             else:
                 action[:2] *= self.multiplier
             if self.num_actions>2:
-                chis=np.ceil(np.array(action)[2:]).clip(min=0)
-                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = chis
+                action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
+                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = action[2:]
         if self.num_actions == 2:
             alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
         else:
@@ -586,8 +586,9 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep.plot(self.tlist, appo)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
-        self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
-        self.axes[0, 0].set_ylabel(r"$|\alpha|$", labelpad=0);
+        if self.num_actions==1:
+            self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
+            self.axes[0, 0].set_ylabel(r"$|\alpha|$", labelpad=0);
         if self.num_actions > 1:
             self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$")
             self.axes[0, 0].step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$")
