@@ -476,7 +476,7 @@ class SimpleCavityEnv(gym.Env):
         #     rew=self.fidelity
         # else:
         #     rew=0
-        self.rewards[self.t - 1] = rew
+        self.rewards[self.t - 1] = self.fidelity
 
         return rew
 
