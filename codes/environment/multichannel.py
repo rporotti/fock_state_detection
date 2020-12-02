@@ -687,7 +687,7 @@ class SimpleCavityEnv(gym.Env):
         count = 0
         self.axes[0, 0].lines[0].set_xdata(self.tlist)
         self.axes[0, 0].lines[0].set_ydata(self.actions_plot[0, :])
-        if self.num_actions == 2:
+        if self.num_actions > 1:
             self.axes[0, 0].lines[1].set_ydata(self.actions_plot[1, :])
 
         self.axes[0, 0].set_ylim(-1.1 * np.max(np.abs(self.actions_plot[:2])), np.max(np.abs(self.actions_plot[:2])) * 1.1)
