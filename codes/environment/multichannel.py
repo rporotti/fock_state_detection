@@ -266,8 +266,8 @@ class SimpleCavityEnv(gym.Env):
             else:
                 action[:2] *= self.multiplier
             if self.num_actions>2:
-                chis=np.ceil(np.array(action)[2:]).clip(min=0)
-                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = chis
+                action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
+                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = action[2:]
         if self.num_actions == 2:
             alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
         else:
