@@ -29,12 +29,12 @@ if __name__ == '__main__':
     if args.lstm == True:
         policy = MlpLstmPolicy
     else:
-        policy = MlpPolicy
+        if args.algorithm=="DDPG": policy=stable_baselines.ddpg.policies.MlpPolicy
+        else: policy = MlpPolicy
+
 
     if args.mpi == True:
         env = DummyVecEnv([lambda: SimpleCavityEnv(args)])
-        # env=SimpleCavityEnv(args)
-        model = stable_baselines.PPO1(policy, env, verbose=1)
     else:
         import functools
         import multiprocessing
@@ -48,7 +48,10 @@ if __name__ == '__main__':
         #env = SubprocVecEnv([functools.partial(SimpleCavityEnv, args, queue=q, counter=n) for n in range(args.ntraj)],
         #                    start_method="fork")
         # env=VecNormalize(env)
+    if args.algorithm=="PPO2":
         model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj)
+    else:
+        model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1)
 
     from stable_baselines.common.callbacks import CheckpointCallback
 
