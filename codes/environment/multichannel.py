@@ -267,7 +267,7 @@ class SimpleCavityEnv(gym.Env):
                 action[:2] *= self.multiplier
             if self.num_actions>2:
                 action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
-                self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)] = action[2:]
+                self.P[np.arange(self.num_actions-2), np.arange(self.num_actions-2), np.arange(self.num_actions-2)] = action[2:]
         if self.num_actions == 2:
             alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
         else:
@@ -618,7 +618,7 @@ class SimpleCavityEnv(gym.Env):
                     self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
             else:
                 self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
-                if self.num_actions>2:
+                if self.num_actions>2 and count<self.num_actions-2:
                     self.axes[-2 + i, j].plot(self.tlist, appo, lw=2*lw, alpha=0.5, color="gray")
             # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
             # self.axes_integral[-2+i,j].plot([],[] ,color="red")
@@ -741,7 +741,7 @@ class SimpleCavityEnv(gym.Env):
             self.axes[-2 + i, j].set_ylim(-maxim * 1.1, maxim * 1.1)
 
 
-            if self.num_actions>2:
+            if self.num_actions>2 and count<self.num_actions-2:
                 self.axes[-2 + i, j].lines[-1].set_xdata(self.tlist)
                 self.axes[-2 + i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
             #
