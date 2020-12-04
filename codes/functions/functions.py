@@ -54,9 +54,9 @@ def create_info(args):
     folder=args["folder"]
     hour=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
     now=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y_%H.%M.%S")
-    date=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%d-%m-%Y")
+    date=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%Y-%m-%d")
 
-    info="cavity"
+    info=date+"_cavity"
     appo=""
     exclude_list=["HER","animation","load_parameters","same",
      "mode","mpi", "lstm","stop_best","fixed_seed", "folder","filter","discrete","capped_to_zero"]
@@ -69,7 +69,7 @@ def create_info(args):
                 appo+="_lstm"
     if appo=="":
         appo="_standard"
-    info+=appo+"_"+date
+    info+=appo
 
     if args["HER"]:
         info+="_HER"

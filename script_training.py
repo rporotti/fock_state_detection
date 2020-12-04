@@ -1,17 +1,13 @@
-import gym
-import os
 import sys
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-gym.logger.set_level(40)
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+from codes.common.parser import parser
+from codes.environment.multichannel import SimpleCavityEnv
+from codes.environment.pinnedsubprocvecenv import PinnedSubprocVecEnv
+
 import stable_baselines
 from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecCheckNan, VecNormalize
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 
-from codes.common.parser import parser
-from codes.environment.multichannel import SimpleCavityEnv
-from codes.environment.pinnedsubprocvecenv import PinnedSubprocVecEnv
+
 
 
 #args = parser.parse_args(args=[])
