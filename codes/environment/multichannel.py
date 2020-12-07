@@ -15,6 +15,7 @@ from textwrap import wrap
 import json
 from mpi4py import MPI
 import os
+import itertools
 
 base_model = gym.Env
 import h5py
@@ -103,8 +104,15 @@ class SimpleCavityEnv(gym.Env):
     def init_operators(self):
         self.a = qt.destroy(self.Nstates)
         self.ad = qt.create(self.Nstates)
-        self.P = np.zeros((self.N, self.Nstates, self.Nstates))
-        self.P[np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
+
+
+        if self.num_actions<=2:
+            self.P = np.zeros((1, self.N, self.Nstates, self.Nstates))
+            self.P[0,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
+        else:
+            self.P = np.zeros((2**(self.num_actions-2), self.N, self.Nstates, self.Nstates))
+            self.combinations = np.array(list(itertools.product([0, 1], repeat=self.num_actions - 2)))
+            self.P[:, np.arange(self.N), np.arange(self.N), np.arange(self.N)]=self.combinations*self.chi
 
         self.aOp = self.a.full()
         self.adOp = self.ad.full()
@@ -113,11 +121,10 @@ class SimpleCavityEnv(gym.Env):
         self.adaOp_square = np.matmul(self.adaOp, self.adaOp)
         self.a_plus_ad_Op = self.aOp + self.adOp
 
-        self.H0 = 0
-        for n in range(self.N):
-            self.H0 += np.dot(self.adaOp, self.P[n])
 
-        self.U0 = linalg.expm(-1j * self.dt * self.H0)
+        self.H0=np.zeros(( 2**(self.num_actions-2), self.Nstates, self.Nstates),dtype="complex")
+        for i in range(len(self.H0)):
+            self.H0[i] =np.sum(np.matmul(self.adaOp, self.P[i]),axis=0)
 
     def init_var(self, args, dataset):
         rank = MPI.COMM_WORLD.Get_rank()
@@ -258,24 +265,26 @@ class SimpleCavityEnv(gym.Env):
         if self.discrete:
             action = self.multiplier * action / 5
         else:
-            action=np.array(action)
             if self.capped:
                 action[:2] *= self.multiplier
                 action[:2]+=1
                 action[:2]/=2
             else:
                 action[:2] *= self.multiplier
-            if self.num_actions>2:
+
+            number=0
+            if self.num_actions == 1:
+                alpha = action[0]
+            else:
+                alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
+            if self.num_actions > 2:
                 action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
-                self.P[np.arange(self.num_actions-2), np.arange(self.num_actions-2), np.arange(self.num_actions-2)] = action[2:]
-        if self.num_actions == 2:
-            alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
-        else:
-            alpha = action[0]
+                number=int("".join([str(int(i)) for i in action[2:]]),2)
+
+            P=self.P[number]
 
         self.H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
-
-        H = self.H_displacement+self.H0
+        H = self.H_displacement+self.H0[number]
 
         for step in range(self.numberPhysicsMicroSteps):
 
@@ -304,17 +313,17 @@ class SimpleCavityEnv(gym.Env):
 
             if self.kappa_dephasing > 0:
                 k1 = self.dt / 2 * self.kappa_dephasing * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho) + np.matmul(self.Rho, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho, P)) -
+                            0.5 * (np.matmul(P, self.Rho) + np.matmul(self.Rho, P)))
                 k2 = self.dt / 2 * self.kappa_dephasing * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k1 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k1 / 2) + np.matmul(self.Rho + k1 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k1 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k1 / 2) + np.matmul(self.Rho + k1 / 2, P)))
                 k3 = self.dt / 2 * self.kappa_dephasing * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k2 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k2 / 2) + np.matmul(self.Rho + k2 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k2 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k2 / 2) + np.matmul(self.Rho + k2 / 2, P)))
                 k4 = self.dt / 2 * self.kappa_dephasing * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k3 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k3 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, P)))
                 dephasing = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
             # k=np.zeros((self.N,self.Nstates,self.Nstates),dtype=np.complex128)
 
@@ -322,21 +331,21 @@ class SimpleCavityEnv(gym.Env):
             dissipator = 0
             if self.kappa_meas > 0.:
                 k1 = self.dt / 2 * self.kappa_meas * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho) + np.matmul(self.Rho, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho, P)) -
+                            0.5 * (np.matmul(P, self.Rho) + np.matmul(self.Rho, P)))
                 k2 = self.dt / 2 * self.kappa_meas * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k1 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k1 / 2) + np.matmul(self.Rho + k1 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k1 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k1 / 2) + np.matmul(self.Rho + k1 / 2, P)))
                 k3 = self.dt / 2 * self.kappa_meas * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k2 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k2 / 2) + np.matmul(self.Rho + k2 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k2 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k2 / 2) + np.matmul(self.Rho + k2 / 2, P)))
                 k4 = self.dt / 2 * self.kappa_meas * ( \
-                            np.matmul(self.P[:], np.matmul(self.Rho + k3 / 2, self.P[:])) -
-                            0.5 * (np.matmul(self.P[:], self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, self.P[:])))
+                            np.matmul(P, np.matmul(self.Rho + k3 / 2, P)) -
+                            0.5 * (np.matmul(P, self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, P)))
                 dissipator = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
                 dW = np.random.randn(self.N) * np.sqrt(self.dt)
-                temp = np.matmul(self.P[:], self.Rho) + np.matmul(self.Rho, self.P[:])
+                temp = np.matmul(P, self.Rho) + np.matmul(self.Rho, P)
                 quadrature = np.real(np.trace(temp, axis1=1, axis2=2))
                 self.X[0] = np.sqrt(self.kappa_meas / 2) * quadrature + dW / self.dt
                 k1 = np.sqrt(self.kappa_meas / 2) * dW[:, np.newaxis, np.newaxis] * (
@@ -354,7 +363,7 @@ class SimpleCavityEnv(gym.Env):
                     k_heterodyne += dissipator
 
                     dW = np.random.randn(self.N) * np.sqrt(self.dt)
-                    temp = np.matmul(self.P[:], self.Rho) - np.matmul(self.Rho, self.P[:])
+                    temp = np.matmul(P, self.Rho) - np.matmul(self.Rho, P)
                     quadrature = np.real(np.trace(temp, axis1=1, axis2=2))
                     self.X[1] = np.sqrt(self.kappa_meas) * quadrature + dW / self.dt
                     k1 = -1j * np.sqrt(self.kappa_meas / 2) * dW[:, np.newaxis, np.newaxis] * (
