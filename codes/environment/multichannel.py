@@ -110,8 +110,8 @@ class SimpleCavityEnv(gym.Env):
             self.P = np.zeros((1, self.N, self.Nstates, self.Nstates))
             self.P[0,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
         else:
-            self.P = np.zeros((2**(self.num_actions-2), self.N, self.Nstates, self.Nstates))
-            self.combinations = np.array(list(itertools.product([0, 1], repeat=self.num_actions - 2)))
+            self.P = np.zeros((2**8, self.N, self.Nstates, self.Nstates))
+            self.combinations = np.array(list(itertools.product([0, 1], repeat=8)))
             self.P[:, np.arange(self.N), np.arange(self.N), np.arange(self.N)]=self.combinations*self.chi
 
         self.aOp = self.a.full()
@@ -122,7 +122,7 @@ class SimpleCavityEnv(gym.Env):
         self.a_plus_ad_Op = self.aOp + self.adOp
 
 
-        self.H0=np.zeros(( 2**(self.num_actions-2), self.Nstates, self.Nstates),dtype="complex")
+        self.H0=np.zeros(( 2**8, self.Nstates, self.Nstates),dtype="complex")
         for i in range(len(self.H0)):
             self.H0[i] =np.sum(np.matmul(self.adaOp, self.P[i]),axis=0)
 
@@ -279,8 +279,11 @@ class SimpleCavityEnv(gym.Env):
                 alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
             if self.num_actions > 2:
                 action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
-                number=int("".join([str(int(i)) for i in action[2:]]),2)
 
+                appo=np.pad(action[2:], (0,10-self.num_actions),mode="constant",constant_values=(None,1))
+
+                number=int("".join([str(int(i)) for i in appo]),2)
+                #print(appo,number)
             P=self.P[number]
 
         self.H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
