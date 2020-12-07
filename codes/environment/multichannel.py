@@ -46,7 +46,7 @@ class SimpleCavityEnv(gym.Env):
         self.steps = 0
         self.figure = None
 
-        if self.viewer and self.counter == 0 and self.rank == 0:
+        if self.counter == 0 and self.rank == 0:
             self.create_figure()
 
     def set_placeholders(self):
@@ -144,7 +144,7 @@ class SimpleCavityEnv(gym.Env):
         else:
             self.ntraj = dic["ntraj"]
 
-        if self.viewer and self.mode != "jupyter":
+        if not self.testing:
             if self.counter == 0 and self.rank == 0:
                 direc = create_dir(dic)
                 info = create_info(dic)
@@ -154,25 +154,24 @@ class SimpleCavityEnv(gym.Env):
                 os.makedirs(self.direc + "/script", exist_ok=True)
                 os.makedirs(self.direc + "/model", exist_ok=True)
                 if self.folder != "":
-                    os.makedirs(self.main_folder + self.folder + "/summaries", exist_ok=True)
-                    os.makedirs(self.main_folder + self.folder + "/current", exist_ok=True)
+                    os.makedirs(self.direc + "/../summaries", exist_ok=True)
+                    os.makedirs(self.direc+ "/../current", exist_ok=True)
                 os.system("cp script_training.py " + self.direc + "/script")
                 os.system("cp codes/environment/multichannel.py " + self.direc + "/script")
                 print_info(dic, direc)
 
-        if self.mpi:
-            if rank == 0:
-                MPI.COMM_WORLD.bcast(direc, root=0)
-                MPI.COMM_WORLD.bcast(info, root=0)
-            else:
-                self.direc = MPI.COMM_WORLD.bcast(None, root=0)
-                self.info = MPI.COMM_WORLD.bcast(None, root=0)
-            self.hf = h5py.File(self.direc + '/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
-            self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1), chunks=True)
-            self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
+            if self.mpi:
+                if rank == 0:
+                    MPI.COMM_WORLD.bcast(direc, root=0)
+                    MPI.COMM_WORLD.bcast(info, root=0)
+                else:
+                    self.direc = MPI.COMM_WORLD.bcast(None, root=0)
+                    self.info = MPI.COMM_WORLD.bcast(None, root=0)
+                self.hf = h5py.File(self.direc + '/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
+                self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1), chunks=True)
+                self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
 
-        else:
-            if not self.testing:
+            else:
                 if self.counter == 0:
                     for _ in range(self.ntraj):
                         self.queue.put(self.direc)
@@ -765,19 +764,18 @@ class SimpleCavityEnv(gym.Env):
 
             # self.ax_reward.set_xlim(1,len(self.total_rewards))
 
-        if self.mode == "script":
+        if not self.testing:
             self.figure.savefig(self.direc + "/" + str(self.ep) + "_reward.png")
-            if self.testing is False:
-                if self.ep % self.save_every == 0:
-                    if self.folder != "":
-                        a_file = open(self.main_folder + self.folder + "/summaries/summary_" + self.info + ".txt", "w")
-                        a_file.write(" ".join(str(np.round(item / 20, 3)) for item in out[0]))
-                        a_file.close()
+            if self.ep % self.save_every == 0:
+                if self.folder != "":
+                    a_file = open(self.direc + "/../summaries/summary_" + self.info + ".txt", "w")
+                    a_file.write(" ".join(str(np.round(item / 20, 3)) for item in out[0]))
+                    a_file.close()
 
-                        self.figure.savefig(
-                            self.main_folder + self.folder + "/current/current_status_" + self.info + ".png")
-                if self.total_rewards[-1] > self.best_reward:
-                    self.best_reward = self.total_rewards[-1]
+                    self.figure.savefig(
+                        self.direc + "/../current/current_status_" + self.info + ".png")
+            if self.total_rewards[-1] > self.best_reward:
+                self.best_reward = self.total_rewards[-1]
 
         # self.epoch+=1
         self.draw = False

@@ -9,13 +9,14 @@ from mpi4py import MPI
 def create_dir(args):
     
     info=create_info(args)
-    
-    
+
+    hour = datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
+    date = datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%Y-%m-%d")
+
     rank = MPI.COMM_WORLD.Get_rank()
     mode=args["mode"]
     main_folder=args["main_folder"]
-    folder=args["folder"]
-    hour=datetime.datetime.now(pytz.timezone('Europe/Berlin')).strftime("%H.%M.%S")
+    folder=date+"_"+args["folder"]
 
 
     if args["library"]=="SB":
