@@ -631,7 +631,7 @@ class SimpleCavityEnv(gym.Env):
             else:
                 self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
                 if self.num_actions>2 and count<self.num_actions-2:
-                    self.axes[-2 + i, j].plot(self.tlist, appo, lw=2*lw, alpha=0.5, color="gray")
+                    self.axes[-2 + i, j].step(self.tlist, appo, lw=2*lw, alpha=0.5, color="gray")
             # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
             # self.axes_integral[-2+i,j].plot([],[] ,color="red")
 
