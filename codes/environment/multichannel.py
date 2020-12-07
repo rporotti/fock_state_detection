@@ -107,8 +107,8 @@ class SimpleCavityEnv(gym.Env):
 
 
         if self.num_actions<=2:
-            self.P = np.zeros((1, self.N, self.Nstates, self.Nstates))
-            self.P[0,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
+            self.P = np.zeros((2, self.N, self.Nstates, self.Nstates))
+            self.P[:,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
         else:
             self.P = np.zeros((2**8, self.N, self.Nstates, self.Nstates))
             self.combinations = np.array(list(itertools.product([0, 1], repeat=8)))
@@ -123,7 +123,7 @@ class SimpleCavityEnv(gym.Env):
 
 
         self.H0=np.zeros(( 2**8, self.Nstates, self.Nstates),dtype="complex")
-        for i in range(len(self.H0)):
+        for i in range(len(self.P)):
             self.H0[i] =np.sum(np.matmul(self.adaOp, self.P[i]),axis=0)
 
     def init_var(self, args, dataset):
@@ -413,22 +413,9 @@ class SimpleCavityEnv(gym.Env):
         reward = self.getReward()  #####-1/8*(  np.sqrt(action[0]**2+action[1]**2)  )
 
         if self.t >= self.T:
-            self.probs_final.append(self.fidelity)
-
             self.done = True
-            self.rews.append(np.sum(self.rewards))
+            self.end_episode()
 
-            if not self.testing:
-                if self.mpi:
-                    self.hf["rewards"][self.rank] = np.sum(self.rewards)
-                    self.hf["probs_fin"][self.rank] = self.fidelity
-                else:
-                    self.arr[self.counter, 0] = np.sum(self.rewards)
-                    self.arr[self.counter, 1] = self.fidelity
-
-            if self.testing == False and self.rank == 0 and self.counter == 0 and self.ep % self.save_every == 0:
-                self.render()
-            self.ep += 1
 
         return obs, reward, self.done, {}
 
@@ -501,20 +488,46 @@ class SimpleCavityEnv(gym.Env):
     def set_rho_target(self, target_state):
         self.Rho_target = target_state.full()
 
-    def evaluate_policy(self):
-        if self.rank == 0 and self.counter == 0:
+    def end_episode(self):
+        # if self.rank == 0 and self.counter == 0:
+        #
+        #     self.total_rewards.append(np.sum(self.rews[-1]))
+        #     self.total_success.append(np.mean(self.success))
+        #
+        #     # self.std_rewards.append(np.std(self.rews[-self.save_every:]))
+        #     if self.viewer == True and self.ep % self.save_every == 0:
+        #         print("Evaluating policy...")
+        #         print("Last " + str(self.save_every) + " episodes, av. reward=" + str(
+        #             np.mean(self.total_rewards[-self.save_every:])))
+        #         print("Last " + str(self.save_every) + " episodes, prob. success=" + str(
+        #             np.mean(self.total_rewards[-self.save_every:])))
+        #         self.render()
+        self.probs_final.append(self.fidelity)
+        self.rews.append(np.sum(self.rewards))
 
-            self.total_rewards.append(np.sum(self.rews[-1]))
-            self.total_success.append(np.mean(self.success))
+        if not self.testing:
+            if self.mpi:
+                self.hf["rewards"][self.rank] = np.sum(self.rewards)
+                self.hf["probs_fin"][self.rank] = self.fidelity
+            else:
+                self.arr[self.counter, 0] = np.sum(self.rewards)
+                self.arr[self.counter, 1] = self.fidelity
 
-            # self.std_rewards.append(np.std(self.rews[-self.save_every:]))
-            if self.viewer == True and self.ep % self.save_every == 0:
-                print("Evaluating policy...")
-                print("Last " + str(self.save_every) + " episodes, av. reward=" + str(
-                    np.mean(self.total_rewards[-self.save_every:])))
-                print("Last " + str(self.save_every) + " episodes, prob. success=" + str(
-                    np.mean(self.total_rewards[-self.save_every:])))
+        if self.testing == False and self.rank == 0 and self.counter == 0:
+            if self.mpi:
+                total_rewards = np.mean(self.hf["rewards"][:, 0], axis=0)
+                std_rewards = np.std(self.hf["rewards"][:, 0], axis=0)
+                self.probs_fin = self.hf["probs_fin"][:, 0]
+            else:
+                total_rewards = np.mean(self.arr[:, 0])
+                std_rewards = np.std(self.arr[:, 0])
+                self.probs_fin = self.arr[:, 1]
+            self.total_rewards.append(total_rewards)
+            self.std_rewards.append(std_rewards)
+
+            if self.ep % self.save_every == 0:
                 self.render()
+        self.ep += 1
 
     def create_figure(self):
 
@@ -708,16 +721,7 @@ class SimpleCavityEnv(gym.Env):
         #     rect.set_width(w)
 
         if self.testing is False:
-            if self.mpi:
-                total_rewards = np.mean(self.hf["rewards"][:, 0], axis=0)
-                std_rewards = np.std(self.hf["rewards"][:, 0], axis=0)
-                probs_fin = self.hf["probs_fin"][:, 0]
-            else:
-                total_rewards = np.mean(self.arr[:, 0])
-                std_rewards = np.std(self.arr[:, 0])
-                probs_fin = self.arr[:, 1]
-            self.total_rewards.append(total_rewards)
-            self.std_rewards.append(std_rewards)
+
             x = np.linspace(1, self.ep * self.ntraj, len(self.total_rewards))
             self.ax_reward.lines[0].set_data(x, self.total_rewards)
             self.ax_reward.set_ylim(0, max(self.total_rewards) + 1)
@@ -733,8 +737,8 @@ class SimpleCavityEnv(gym.Env):
             bins = 200
 
             self.ax_histo2.cla()
-            self.probs_final.append(probs_fin)
-            out = self.ax_histo2.hist(probs_fin, bins=20, range=(0, 1), density=True)
+            self.probs_final.append(self.probs_fin)
+            out = self.ax_histo2.hist(self.probs_fin, bins=20, range=(0, 1), density=True)
             self.ax_histo2.set_xlim(0, 1)
 
         for count in range(self.N):
