@@ -24,7 +24,7 @@ def create_dir(args):
                 direc=main_folder+"jupyter_"+info
             if mode=="script":
                 if args["folder"]!="":
-                    direc=main_folder+folder+"/"+info
+                    direc=main_folder+"/"+folder+"/"+info
                 else:
                     direc=main_folder+"/"+info
                 if os.path.isdir(direc):
