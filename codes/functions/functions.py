@@ -18,7 +18,6 @@ def create_dir(args):
     main_folder=args["main_folder"]
     folder=date+"_"+args["folder"]
 
-
     if args["library"]=="SB":
         if mode!="cluster":
             if mode=="jupyter":
@@ -27,7 +26,7 @@ def create_dir(args):
                 if args["folder"]!="":
                     direc=main_folder+folder+"/"+info
                 else:
-                    direc=main_folder+info
+                    direc=main_folder+"/"+info
                 if os.path.isdir(direc):
                     _add="_"+hour
 #                    i=2
@@ -44,7 +43,6 @@ def create_dir(args):
 
         
 
-
     return direc
 
 
@@ -60,7 +58,7 @@ def create_info(args):
     info=date+"_cavity"
     appo=""
     exclude_list=["HER","animation","load_parameters","same",
-     "mode","mpi", "lstm","stop_best","fixed_seed", "folder","filter","discrete","capped_to_zero"]
+     "mode","mpi", "lstm","stop_best","fixed_seed", "folder","filter","discrete","capped_to_zero","main_folder"]
     for i in range(1,len(sys.argv)):
         if sys.argv[i].startswith("--"):
             line=sys.argv[i].split("--")[1]
