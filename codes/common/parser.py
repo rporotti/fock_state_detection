@@ -71,7 +71,7 @@ parser.add_argument('--RL_steps', type=float, default=1E6)
 
 
 
-parser.add_argument('--main_folder', type=str, default="../simulations/", help='Main folder')
+parser.add_argument('--main_folder', type=str, default="/ptmp/pori/simulations", help='Main folder')
 
 #args = parser.parse_args()
 
