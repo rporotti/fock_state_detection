@@ -465,7 +465,10 @@ class SimpleCavityEnv(gym.Env):
 
     def getReward(self):
         # self.compute_fidelity()
-        rew =(    ((self.fidelity - self.rew_init)/(1-self.rew_init)) ** self.power_reward    )/self.T
+        rew =((    self.fidelity   ) ** self.power_reward    )/self.T
+        #self.rew_init
+
+
 
         # p=np.abs(np.real(self.probabilities[:,self.t-1]))
         # #print(p)
@@ -525,7 +528,7 @@ class SimpleCavityEnv(gym.Env):
                 std_rewards = np.std(self.arr[:, 0])
                 self.probs_fin = self.arr[:, 1]
             self.total_rewards.append(total_rewards)
-            self.std_rewards.append(std_rewards)
+            self.std_rewards.append(np.sqrt(std_rewards))
 
             if self.ep % self.save_every == 0:
                 self.render()
@@ -551,7 +554,7 @@ class SimpleCavityEnv(gym.Env):
 
         self.ax_trace = self.figure.add_subplot(gs[offset, :-2])
         self.ax_histo1 = self.figure.add_subplot(gs[offset, -2])
-        self.ax_histo1.get_xaxis().set_visible(False)
+        #self.ax_histo1.get_xaxis().set_visible(False)
         self.ax_histo1.get_yaxis().set_visible(False)
         self.ax_histo1.set_xlim(0, 1)
         self.ax_histo1.set_ylim(0, self.Nstates)
