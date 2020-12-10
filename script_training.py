@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from codes.common.parser import parser
 from codes.environment.multichannel import SimpleCavityEnv
 from codes.environment.pinnedsubprocvecenv import PinnedSubprocVecEnv
@@ -25,7 +26,11 @@ if __name__ == '__main__':
     if args.lstm == True:
         policy = MlpLstmPolicy
     else:
-        if args.algorithm=="DDPG": policy=stable_baselines.ddpg.policies.MlpPolicy
+        if args.algorithm=="DDPG": 
+            policy=stable_baselines.ddpg.policies.MlpPolicy
+            param_noise = None
+            action_noise = stable_baselines.common.noise.OrnsteinUhlenbeckActionNoise(mean=np.zeros(args.num_actions), sigma=float(0.1) * np.ones(args.num_actions))
+
         else: policy = MlpPolicy
 
 
@@ -41,17 +46,16 @@ if __name__ == '__main__':
             env = PinnedSubprocVecEnv([make_env(args, dataset, q, i) for i in range(args.ntraj)],start_method="fork")
         if sys.platform == "darwin":
             env = SubprocVecEnv([make_env(args, dataset, q, i) for i in range(args.ntraj)], start_method="fork")
-        #env = SubprocVecEnv([functools.partial(SimpleCavityEnv, args, queue=q, counter=n) for n in range(args.ntraj)],
-        #                    start_method="fork")
-        # env=VecNormalize(env)
+
     if args.algorithm=="PPO2":
         model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj)
+    elif args.algorithm=="DDPG":
+        model = stable_baselines.DDPG(policy, env, verbose=1, param_noise=param_noise, action_noise=action_noise)
     else:
         model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1)
-
-    from stable_baselines.common.callbacks import CheckpointCallback
-
-    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path=env.get_attr("direc")[0] + "/model")
-
-    model.learn(int(args.RL_steps),callback=checkpoint_callback)
-
+    
+        
+    #from stable_baselines.common.callbacks import CheckpointCallback
+    #checkpoint_callback = CheckpointCallback(save_freq=100000, save_path=env.get_attr("direc")[0] + "/model")
+    #model.learn(int(args.RL_steps),callback=checkpoint_callback)
+    model.learn(int(args.RL_steps))
