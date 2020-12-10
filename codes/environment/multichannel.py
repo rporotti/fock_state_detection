@@ -555,6 +555,8 @@ class SimpleCavityEnv(gym.Env):
         self.ax_trace = self.figure.add_subplot(gs[offset, :-2])
         self.ax_histo1 = self.figure.add_subplot(gs[offset, -2])
         #self.ax_histo1.get_xaxis().set_visible(False)
+        self.ax_histo1.get_xaxis().set_ticks(np.linspace(0,1,5))
+        self.ax_histo1.set_xticklabels([])
         self.ax_histo1.get_yaxis().set_visible(False)
         self.ax_histo1.set_xlim(0, 1)
         self.ax_histo1.set_ylim(0, self.Nstates)
