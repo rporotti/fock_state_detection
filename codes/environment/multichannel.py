@@ -465,7 +465,7 @@ class SimpleCavityEnv(gym.Env):
 
     def getReward(self):
         # self.compute_fidelity()
-        rew = (self.fidelity - self.rew_init) ** self.power_reward
+        rew =(    ((self.fidelity - self.rew_init)/(1-self.rew_init)) ** self.power_reward    )/self.T
 
         # p=np.abs(np.real(self.probabilities[:,self.t-1]))
         # #print(p)
