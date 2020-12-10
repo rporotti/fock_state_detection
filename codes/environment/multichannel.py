@@ -72,6 +72,7 @@ class SimpleCavityEnv(gym.Env):
         self.std_rewards = [0]
         self.rews = []
         self.successes = []
+        self.fidelities = np.zeros(self.T)
 
     def set_RL(self):
 
@@ -478,6 +479,7 @@ class SimpleCavityEnv(gym.Env):
         #     rew=self.fidelity
         # else:
         #     rew=0
+        self.fidelities[self.t - 1] = self.fidelity
         self.rewards[self.t - 1] = rew
 
         return rew
@@ -703,7 +705,7 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[-3,2].lines[1].set_ydata(self.purity)
 
         self.ax_rew_ep.lines[0].set_xdata(self.tlist)
-        self.ax_rew_ep.lines[0].set_ydata(self.rewards)
+        self.ax_rew_ep.lines[0].set_ydata(self.fidelities)
         # if self.measurement_operator is not None:
         #     self.axes[-2,3].lines[0].set_xdata(self.tlist)
         #     self.axes[-2,3].lines[0].set_ydata(self.meas)
