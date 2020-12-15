@@ -214,7 +214,7 @@ class SimpleCavityEnv(gym.Env):
         self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)
         self.fixed_seed = dic["fixed_seed"]
         self.multiplier = float(dic["multiplier"])
-        self.max_displ_per_step = self.multiplier/self.T
+        self.max_displ_per_step = self.multiplier*self.dt
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
