@@ -196,8 +196,7 @@ class SimpleCavityEnv(gym.Env):
         self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
         self.T = dic["timesteps"]  # total time span
         self.T_max = dic["T_max"]
-        if self.kappa_meas>0:
-            self.T_max=self.T_max/self.kappa_meas
+
         self.obs = dic["obs"]
         self.meas_type = dic["meas"]
         self.num_actions = dic["num_actions"]
@@ -215,11 +214,12 @@ class SimpleCavityEnv(gym.Env):
         self.fixed_seed = dic["fixed_seed"]
         self.multiplier = float(dic["multiplier"])
         self.max_displ_per_step = self.multiplier*self.dt
+        self.tlist = np.linspace(0, self.T_max*self.kappa_meas, self.T)
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
         self.save_every = dic["save_every"]
-        self.scale = np.sqrt(self.kappa_meas/2)
+        self.scale = np.sqrt(self.kappa_meas)
     #         if self.folder!="" and self.counter==0 and self.rank==0:
     #             self.summary = open("../simulations/"+self.folder+"/summary.txt","a",os.O_NONBLOCK)
     #             self.summary.write(self.info+"\t")
@@ -610,10 +610,6 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[self.offset,2].set_ylabel("Overlap, purity", labelpad=0);
         # self.axes[self.offset,3].set_ylabel("Measurement");
 
-        if self.kappa_meas>0:
-            self.tlist = np.linspace(0, self.T_max*self.kappa_meas, self.T)
-        else:
-            self.tlist = np.linspace(0, self.T_max, self.T)
 
         appo = np.full(self.T, None)
         x = np.linspace(0, self.ep * self.ntraj, len(self.total_rewards))
@@ -653,7 +649,7 @@ class SimpleCavityEnv(gym.Env):
             j = count % 4
             if j == 0:
                 self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2])
-                self.axes_obs[i, j].set_ylabel(r"Signal [$\sqrt{\kappa_{meas}/2}$]")
+                self.axes_obs[i, j].set_ylabel(r"Signal [$\sqrt{\kappa_{meas}}$]")
             else:
                 self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2],
                                                                sharey=self.axes_obs[-2 + i, j - 1])
