@@ -53,7 +53,7 @@ class SimpleCavityEnv(gym.Env):
         self.xwigner = np.linspace(-5, 5, 100)
         self.cavity = np.zeros(self.T)
         self.rewards = np.zeros(self.T)
-        self.Rho_int = np.zeros(self.T, dtype=object)
+        #self.Rho_int = np.zeros(self.T, dtype=object)
         self.commut = np.zeros(self.T)
         self.actions_plot = np.zeros((self.num_actions, self.T))
         self.overlap = np.zeros(self.T)
@@ -85,9 +85,11 @@ class SimpleCavityEnv(gym.Env):
                 self.MsmtTrace = np.zeros((self.last_timesteps, 2, self.N))
                 if self.filter:
                     self.observation_space = gym.spaces.Box(low=-30, high=30,
-                                                            shape=(self.last_timesteps, self.size_filters, 2, self.N))
+                                                            shape=(self.last_timesteps, self.size_filters, 2, self.N),
+                                                            dtype=np.float32)
                 else:
-                    self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.last_timesteps, 2, self.N),
+                    self.observation_space = gym.spaces.Box(low=-30, high=30,
+                                                            shape=(self.last_timesteps, 2, self.N),
                                                             dtype=np.float32)
                 # self.observation_space = gym.spaces.Box(low=-30, high=30, shape=(self.N,))
             if self.meas_type == "heterodyne":
@@ -194,6 +196,8 @@ class SimpleCavityEnv(gym.Env):
         self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
         self.T = dic["timesteps"]  # total time span
         self.T_max = dic["T_max"]
+        if self.kappa_meas>0:
+            self.T_max/=self.kappa_meas
         self.obs = dic["obs"]
         self.meas_type = dic["meas"]
         self.num_actions = dic["num_actions"]
@@ -209,12 +213,15 @@ class SimpleCavityEnv(gym.Env):
 
         self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)
         self.fixed_seed = dic["fixed_seed"]
-        self.multiplier = dic["multiplier"]
+        self.multiplier = float(dic["multiplier"])
+        self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
+
+        self.tlist = np.linspace(0, self.T_max*self.kappa_meas, self.T)
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
         self.save_every = dic["save_every"]
-
+        self.scale = np.sqrt(self.kappa_meas)
     #         if self.folder!="" and self.counter==0 and self.rank==0:
     #             self.summary = open("../simulations/"+self.folder+"/summary.txt","a",os.O_NONBLOCK)
     #             self.summary.write(self.info+"\t")
@@ -243,10 +250,11 @@ class SimpleCavityEnv(gym.Env):
         self.X = np.zeros((2, self.N))
         self.t = 0
         if self.filter:
-            self.y = np.zeros((self.size_filters, 2, self.N))
+            self.y = np.zeros((self.size_filters, 2, self.N)) # TODO
 
         if self.fixed_seed:
             np.random.seed(0)
+            self.dWs=np.random.randn(self.T*self.numberPhysicsMicroSteps,self.N) * np.sqrt(self.dt)
 
         return self._get_obs()
 
@@ -266,11 +274,11 @@ class SimpleCavityEnv(gym.Env):
             action = self.multiplier * action / 5
         else:
             if self.capped:
-                action[:2] *= self.multiplier
+                action[:2] *= self.max_displ_per_step
                 action[:2]+=1
                 action[:2]/=2
             else:
-                action[:2] *= self.multiplier
+                action[:2] *= self.max_displ_per_step
 
             number=0
             if self.num_actions == 1:
@@ -347,10 +355,14 @@ class SimpleCavityEnv(gym.Env):
                             0.5 * (np.matmul(P, self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, P)))
                 dissipator = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
-                dW = np.random.randn(self.N) * np.sqrt(self.dt)
+                if self.fixed_seed:
+                    dW=self.dWs[step+self.t]
+                else:
+                    dW = np.random.randn(self.N) * np.sqrt(self.dt)
                 temp = np.matmul(P, self.Rho) + np.matmul(self.Rho, P)
                 quadrature = np.real(np.trace(temp, axis1=1, axis2=2))
                 self.X[0] = np.sqrt(self.kappa_meas / 2) * quadrature + dW / self.dt
+
                 k1 = np.sqrt(self.kappa_meas / 2) * dW[:, np.newaxis, np.newaxis] * (
                             temp - quadrature[:, np.newaxis, np.newaxis] * self.Rho)
                 k2 = np.sqrt(self.kappa_meas / 2) * dW[:, np.newaxis, np.newaxis] * (
@@ -393,26 +405,21 @@ class SimpleCavityEnv(gym.Env):
         if np.any(np.isnan(self.Rho)) or np.trace(self.Rho) > 1.1:
             self.reset()
         self.cavity[self.t] = abs(np.trace(np.matmul(self.adaOp, self.Rho)))
-        self.Rho_int[self.t] = self.Rho
+        #self.Rho_int[self.t] = self.Rho
         self.compute_fidelity()
         if np.any(np.isnan(self.Rho)) or self.fidelity > 1.1:
             self.reset()
 
-        self.observations[self.t] = self.X  # add the new msmt result
+          # add the new msmt result
 
-        if self.meas_type == "homodyne":
-            self.MsmtTrace[-1] = self.X[0]
-        if self.meas_type == "heterodyne":
-            self.MsmtTrace[-1] = self.X
 
-        self.t += 1
+
+
         # print(self.t, self.dt,self.observations)
-        self.integrals[self.t - 1] = 1 / (self.t * self.dt) * (
-            np.trapz(self.observations[:self.t - 1], axis=0, dx=self.dt))
 
         obs = self._get_obs()
         reward = self.getReward()  #####-1/8*(  np.sqrt(action[0]**2+action[1]**2)  )
-
+        self.t += 1
         if self.t >= self.T:
             self.done = True
             self.end_episode()
@@ -421,22 +428,35 @@ class SimpleCavityEnv(gym.Env):
         return obs, reward, self.done, {}
 
     def _get_obs(self):
+        self.observations[self.t] = self.X
+
+        if self.meas_type == "homodyne":
+            self.MsmtTrace[-1] = self.X[0]
+            if self.scale > 0:
+                self.observations[self.t] = self.observations[self.t]/self.scale
+        if self.meas_type == "heterodyne":
+            self.MsmtTrace[-1] = self.X
+        if self.t>0: # TODO
+            self.integrals[self.t] = self.integrals[self.t - 1]*(self.t)/(self.t+1)+self.observations[self.t]/self.t # TODO
+
 
         if self.obs == "measure":
             if self.meas_type == "homodyne":
-                self.scale = self.kappa_meas * 2
-                if self.filter:
-                    taos = [2, 5, 10, 20]
+
+                if self.filter: # TODO
+                    self.y[0:-1] = self.y[1:]  # shift
+                    self.y[-1] = 0
+                    taos = [50]
                     for i in range(self.size_filters):
-                        self.y[i] += 1 / taos[i] * (self.observations[self.t - 1, 0] - self.y[i])
+                        self.y[-1,i] += 1 / taos[i] * (self.observations[self.t, 0] - self.y[-2,i])
                     obs = self.y
                     # obs=scipy.signal.savgol_filter(self.observations[:self.t,0],9,1,axis=0,mode="constant")[-self.last_timesteps]
-
-                    self.observations_filters[self.t - 1] = obs
-                    return np.array(obs)[None, :] / self.scale
+                    print(obs.shape)
+                    self.observations_filters[self.t ] = obs[-1]
+                    return np.array(obs)
 
                 else:
-                    return np.array(self.MsmtTrace) / self.scale
+                    return np.array(self.MsmtTrace)/self.scale
 
             if self.meas_type == "heterodyne":
                 return np.array(self.MsmtTrace)
@@ -543,8 +563,8 @@ class SimpleCavityEnv(gym.Env):
         plt.rcParams.update({'font.size': 8})
         plt.rcParams.update({'figure.dpi': dpi})
         self.figure = plt.figure(figsize=(8, 6), constrained_layout=True)
-        self.axes = np.zeros((3, 4), dtype="object")
-        self.axes_integral = np.zeros((3, 4), dtype="object")
+        self.axes_obs = np.zeros((2, 4), dtype="object")
+        #self.axes_integral = np.zeros((2, 4), dtype="object")
         if self.testing:
             gs = self.figure.add_gridspec(4, 8)
             offset = 0
@@ -553,30 +573,31 @@ class SimpleCavityEnv(gym.Env):
             offset = 1
 
         self.ax_trace = self.figure.add_subplot(gs[offset, :-2])
-        self.ax_histo1 = self.figure.add_subplot(gs[offset, -2])
-        self.ax_histo1.get_xaxis().set_visible(False)
-        self.ax_histo1.get_yaxis().set_visible(False)
-        self.ax_histo1.set_xlim(0, 1)
-        self.ax_histo1.set_ylim(0, self.Nstates)
+        self.ax_histo = self.figure.add_subplot(gs[offset, -2])
+
+        self.ax_histo.get_xaxis().set_visible(False)
+        self.ax_histo.get_yaxis().set_visible(False)
+        self.ax_histo.set_xlim(0, 1)
+        self.ax_histo.set_ylim(0, self.Nstates)
 
         if self.testing:
-            self.axes[0, :] = self.figure.add_subplot(gs[1 + offset, :])
+            self.axes_actions = self.figure.add_subplot(gs[1 + offset, :])
         else:
-            self.axes[0, :] = self.figure.add_subplot(gs[1 + offset, :-2])
+            self.axes_actions = self.figure.add_subplot(gs[1 + offset, :-2])
             self.ax_reward = self.figure.add_subplot(gs[0, :])
 
             self.ax_reward.set_xlabel('Trajectories')
             self.ax_reward.set_ylabel("Reward")
 
-            self.ax_histo2 = self.figure.add_subplot(gs[1 + offset, -2:])
+            self.ax_histo_cumulative = self.figure.add_subplot(gs[1 + offset, -2:])
 
             #self.ax_histo2.get_xaxis().set_visible(False)
-            self.ax_histo2.get_yaxis().set_visible(False)
-            self.ax_histo2.get_xaxis().set_ticks(np.linspace(0, 1, 5))
-            self.ax_histo2.set_xticklabels([])
-            self.ax_histo2.set_ylabel("# cases")
-            self.ax_histo2.set_ylabel("Fidelity")
-            self.ax_histo2.set_xlim(0, 1)
+            self.ax_histo_cumulative.get_yaxis().set_visible(False)
+            self.ax_histo_cumulative.get_xaxis().set_ticks(np.linspace(0, 1, 5))
+            self.ax_histo_cumulative.set_xticklabels([])
+            self.ax_histo_cumulative.set_ylabel("# cases")
+            self.ax_histo_cumulative.set_ylabel("Fidelity")
+            self.ax_histo_cumulative.set_xlim(0, 1)
 
         # self.ax_trace.yaxis.set_ticks_position('both')
         self.ax_trace.tick_params(axis='y', which='both', labelleft='on', labelright='on')
@@ -594,11 +615,11 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[self.offset,2].set_ylabel("Overlap, purity", labelpad=0);
         # self.axes[self.offset,3].set_ylabel("Measurement");
 
-        self.tlist = np.linspace(0, self.T, self.T)
+
 
         appo = np.full(self.T, None)
         x = np.linspace(0, self.ep * self.ntraj, len(self.total_rewards))
-        self.rects = self.ax_histo1.barh(np.flip(np.arange(0, self.Nstates)) + 1 / 2,
+        self.rects = self.ax_histo.barh(np.flip(np.arange(0, self.Nstates)) + 1 / 2,
                                          np.flip(self.probabilities[:, -1]),
                                          align="center")
         # self.rects2 = self.ax_histo3.barh(np.flip(np.arange(0, self.Nstates)) + 1 / 2,
@@ -612,51 +633,53 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep = self.figure.add_subplot(gs[offset, -1])
         # self.ax_rew_ep.get_xaxis().set_visible(False)
         # self.ax_rew_ep.get_yaxis().set_visible(False)
-        self.ax_rew_ep.set_xlim(0, self.T)
+        self.ax_rew_ep.set_xlim(0, self.tlist[-1])
         self.ax_rew_ep.set_ylim(0, 1)
         self.ax_rew_ep.plot(self.tlist, appo)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
         if self.num_actions==1:
-            self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
-            self.axes[0, 0].set_ylabel(r"$|\alpha|$", labelpad=0);
+            self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
+            self.axes_actions.set_ylabel(r"$|\alpha|$", labelpad=0);
         if self.num_actions > 1:
-            self.axes[0, 0].step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$")
-            self.axes[0, 0].step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$")
-            self.axes[0, 0].set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
-        self.axes[0, 0].legend()
+            self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$")
+            self.axes_actions.step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$")
+            self.axes_actions.set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
+        self.axes_actions.legend()
+        self.axes_actions.set_xlim(0, self.tlist[-1])
 
-        self.axes[0, 0].set_xlabel("Timesteps");
+        self.axes_actions.set_xlabel(r"t [$1/\kappa_{meas}$]");
 
         for count in range(self.N):
             i = int(count / 4)
             j = count % 4
             if j == 0:
-                self.axes[-2 + i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2])
+                self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2])
+                self.axes_obs[i, j].set_ylabel(r"Signal [$\sqrt{\kappa_{meas}}$]")
             else:
-                self.axes[-2 + i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2],
-                                                               sharey=self.axes[-2 + i, j - 1])
-                plt.setp(self.axes[-2 + i, j].get_yticklabels(), visible=False)
+                self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2],
+                                                               sharey=self.axes_obs[-2 + i, j - 1])
+                plt.setp(self.axes_obs[-2 + i, j].get_yticklabels(), visible=False)
             if i == 0:
-                plt.setp(self.axes[-2 + i, j].get_xticklabels(), visible=False)
+                plt.setp(self.axes_obs[-2 + i, j].get_xticklabels(), visible=False)
             if i == 1:
-                self.axes[-2 + i, j].set_xlabel(r"$t/\Delta t$")
-            self.axes[i, j].set_xlim(0, self.T)
+                self.axes_obs[i, j].set_xlabel(r"t [$1/\kappa_{meas}$]")
+            self.axes_obs[i, j].set_xlim(0, self.tlist[-1])
 
             if self.filter:
-                self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw, alpha=0.3)
+                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, alpha=0.3)
                 for l in range(self.size_filters):
-                    self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
+                    self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
             else:
-                self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw)
-                if self.num_actions>2 and count<self.num_actions-2:
-                    self.axes[-2 + i, j].step(self.tlist, appo, lw=2*lw, alpha=0.5, color="gray")
+                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
+            if self.num_actions>2 and count<self.num_actions-2:
+                self.axes_obs[i, j].step(self.tlist, appo, lw=3*lw, alpha=0.5, color="gray")
             # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
             # self.axes_integral[-2+i,j].plot([],[] ,color="red")
 
             if self.meas_type == "heterodyne":
-                self.axes[-2 + i, j].plot(self.tlist, appo, lw=lw, color="red")
-            self.axes[-2 + i, j].set_xlim(self.tlist[0], self.tlist[-1])
+                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, color="red")
+            self.axes_obs[i, j].set_xlim(self.tlist[0], self.tlist[-1])
             # self.axes[-2+i,j].set_ylabel("Ch "+str(count+1), labelpad=0);
 
         # self.axes[self.offset,2].plot(self.tlist, appo,lw=lw, color="red", label="Purity")
@@ -691,7 +714,7 @@ class SimpleCavityEnv(gym.Env):
                                        vmin=0,
                                        vmax=1,
                                        alpha=0.9, interpolation="none",
-                                       extent=(0, self.T, 0, self.Nstates))
+                                       extent=(0, self.tlist[-1], 0, self.Nstates))
 
         if not self.testing:
             self.figure.suptitle('\n'.join(wrap(json.dumps(self.dic), 200)), fontsize=4)
@@ -716,12 +739,12 @@ class SimpleCavityEnv(gym.Env):
         #     self.axes[-2,3].lines[0].set_ydata(self.meas)
 
         count = 0
-        self.axes[0, 0].lines[0].set_xdata(self.tlist)
-        self.axes[0, 0].lines[0].set_ydata(self.actions_plot[0, :])
+        self.axes_actions.lines[0].set_xdata(self.tlist)
+        self.axes_actions.lines[0].set_ydata(self.actions_plot[0, :])
         if self.num_actions > 1:
-            self.axes[0, 0].lines[1].set_ydata(self.actions_plot[1, :])
+            self.axes_actions.lines[1].set_ydata(self.actions_plot[1, :])
 
-        self.axes[0, 0].set_ylim(-1.1 * np.max(np.abs(self.actions_plot[:2])), np.max(np.abs(self.actions_plot[:2])) * 1.1)
+        self.axes_actions.set_ylim(-1.1 * np.max(np.abs(self.actions_plot[:2]))-1E-1, np.max(np.abs(self.actions_plot[:2])) * 1.1+1E-1)
         for rect, w in zip(self.rects, np.flip(self.probabilities[:, -1])):
             rect.set_width(w)
         # for rect, w in zip(self.rects2, np.flip(self.phases[:, -1])):
@@ -743,29 +766,29 @@ class SimpleCavityEnv(gym.Env):
             # print(np.array(self.probs_final))
             bins = 200
 
-            self.ax_histo2.cla()
+            self.ax_histo_cumulative.cla()
             self.probs_final.append(self.probs_fin)
-            out = self.ax_histo2.hist(self.probs_fin, bins=20, range=(0, 1), density=True)
-            self.ax_histo2.set_xlim(0, 1)
+            out = self.ax_histo_cumulative.hist(self.probs_fin, bins=20, range=(0, 1), density=True)
+            self.ax_histo_cumulative.set_xlim(0, 1)
 
         for count in range(self.N):
             i = int(count / 4)
             j = count % 4
 
-            self.axes[-2 + i, j].lines[0].set_xdata(self.tlist)
-            self.axes[-2 + i, j].lines[0].set_ydata(self.observations[:, 0, count])
+            self.axes_obs[i, j].lines[0].set_xdata(self.tlist)
+            self.axes_obs[i, j].lines[0].set_ydata(self.observations[:, 0, count])
             if self.filter:
                 for l in range(self.size_filters):
-                    self.axes[-2 + i, j].lines[l + 1].set_ydata(self.observations_filters[:, l, 0, count])
+                    self.axes_obs[i, j].lines[l + 1].set_ydata(self.observations_filters[:, l, 0, count])
             if self.meas_type == "heterodyne":
-                self.axes[-2 + i, j].lines[1].set_ydata(self.observations[:, 1, count])
+                self.axes_obs[i, j].lines[1].set_ydata(self.observations[:, 1, count])
             maxim = np.max(np.abs(self.observations))
-            self.axes[-2 + i, j].set_ylim(-maxim * 1.1, maxim * 1.1)
+            self.axes_obs[i, j].set_ylim(-maxim * 1.1-1E-2, maxim * 1.1+1E-2)
 
 
             if self.num_actions>2 and count<self.num_actions-2:
-                self.axes[-2 + i, j].lines[-1].set_xdata(self.tlist)
-                self.axes[-2 + i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
+                self.axes_obs[i, j].lines[-1].set_xdata(self.tlist)
+                self.axes_obs[i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
             #
             # self.axes_integral[-2+i,j].lines[0].set_xdata(self.tlist )
             # self.axes_integral[-2+i,j].lines[0].set_ydata(np.array(self.integrals)[:,0,count] )
