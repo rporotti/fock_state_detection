@@ -4,7 +4,7 @@ import sys
 
 parser = argparse.ArgumentParser(description='Train a RL agent')
 
-parser.add_argument('--T_max', type=float, default=1.0, help='Physical max time in units of kappa_meas)
+parser.add_argument('--T_max', type=float, default=1.0, help='Physical max time in units of kappa_meas')
 parser.add_argument('--Nstates', type=int, default=15, help='Size of Hilbert space (default at 5)')
 parser.add_argument('--meas', default="homodyne", help='homodyne or heterodyne')
 parser.add_argument('--decay', type=float, default=0, help='Decay rate (default at 0)')
