@@ -196,7 +196,8 @@ class SimpleCavityEnv(gym.Env):
         self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
         self.T = dic["timesteps"]  # total time span
         self.T_max = dic["T_max"]
-
+        if self.kappa_meas>0:
+            self.T_max*=self.kappa_meas
         self.obs = dic["obs"]
         self.meas_type = dic["meas"]
         self.num_actions = dic["num_actions"]
@@ -210,11 +211,12 @@ class SimpleCavityEnv(gym.Env):
 
         self.RL_steps = int(dic["RL_steps"])
 
-        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)
+        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)/self.kappa_meas
         self.fixed_seed = dic["fixed_seed"]
         self.multiplier = float(dic["multiplier"])
-        self.max_displ_per_step = self.multiplier*self.dt
-        self.tlist = np.linspace(0, self.T_max*self.kappa_meas, self.T)
+        self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
+
+        self.tlist = np.linspace(0, self.T_max, self.T)
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
