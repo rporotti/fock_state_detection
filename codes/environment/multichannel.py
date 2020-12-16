@@ -197,7 +197,7 @@ class SimpleCavityEnv(gym.Env):
         self.T = dic["timesteps"]  # total time span
         self.T_max = dic["T_max"]
         if self.kappa_meas>0:
-            self.T_max/=self.kappa_meas
+            self.T_max*=self.kappa_meas
         self.obs = dic["obs"]
         self.meas_type = dic["meas"]
         self.num_actions = dic["num_actions"]
@@ -211,12 +211,12 @@ class SimpleCavityEnv(gym.Env):
 
         self.RL_steps = int(dic["RL_steps"])
 
-        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)
+        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)/self.kappa_meas
         self.fixed_seed = dic["fixed_seed"]
         self.multiplier = float(dic["multiplier"])
         self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
 
-        self.tlist = np.linspace(0, self.T_max*self.kappa_meas, self.T)
+        self.tlist = np.linspace(0, self.T_max, self.T)
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
@@ -243,18 +243,18 @@ class SimpleCavityEnv(gym.Env):
             self.RhoGoal = copy.deepcopy(self.Rho_target)
             self.sqrtRhoGoal = scipy.linalg.sqrtm(self.RhoGoal)
         self.target_distrib = np.real(np.diag(self.Rho_target))
-
+        self.integrals[0,0,:self.N]=self.target_distrib[:self.N] # TODO
         self.compute_fidelity()
         self.rew_init = self.fidelity
         self.msmt_trace_size = 1
         self.X = np.zeros((2, self.N))
         self.t = 0
         if self.filter:
-            self.y = np.zeros((self.size_filters, 2, self.N)) # TODO
+            self.y = np.zeros((self.last_timesteps,self.size_filters, 2, self.N)) # TODO
+            self.y[-1, 0,0, :self.N] = self.target_distrib[:self.N] # TODO
 
         if self.fixed_seed:
             np.random.seed(0)
-            self.dWs=np.random.randn(self.T*self.numberPhysicsMicroSteps,self.N) * np.sqrt(self.dt)
 
         return self._get_obs()
 
@@ -271,7 +271,7 @@ class SimpleCavityEnv(gym.Env):
             action = np.zeros(self.num_actions)
 
         if self.discrete:
-            action = self.multiplier * action / 5
+            action = self.max_displ_per_step * action / 5
         else:
             if self.capped:
                 action[:2] *= self.max_displ_per_step
@@ -355,10 +355,7 @@ class SimpleCavityEnv(gym.Env):
                             0.5 * (np.matmul(P, self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, P)))
                 dissipator = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
-                if self.fixed_seed:
-                    dW=self.dWs[step+self.t]
-                else:
-                    dW = np.random.randn(self.N) * np.sqrt(self.dt)
+                dW = np.random.randn(self.N) * np.sqrt(self.dt)
                 temp = np.matmul(P, self.Rho) + np.matmul(self.Rho, P)
                 quadrature = np.real(np.trace(temp, axis1=1, axis2=2))
                 self.X[0] = np.sqrt(self.kappa_meas / 2) * quadrature + dW / self.dt
@@ -614,7 +611,6 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[self.offset,1].set_ylabel(r"$<\sigma_m^{\dagger} \sigma_m>$", labelpad=0);
         # self.axes[self.offset,2].set_ylabel("Overlap, purity", labelpad=0);
         # self.axes[self.offset,3].set_ylabel("Measurement");
-
 
 
         appo = np.full(self.T, None)
