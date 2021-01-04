@@ -113,8 +113,8 @@ class SimpleCavityEnv(gym.Env):
             self.P = np.zeros((2, self.N, self.Nstates, self.Nstates))
             self.P[:,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
         else:
-            self.P = np.zeros((2**8, self.N, self.Nstates, self.Nstates))
-            self.combinations = np.array(list(itertools.product([0, 1], repeat=8)))
+            self.P = np.zeros((2**self.N, self.N, self.Nstates, self.Nstates))
+            self.combinations = np.array(list(itertools.product([0, 1], repeat=self.N)))
             self.P[:, np.arange(self.N), np.arange(self.N), np.arange(self.N)]=self.combinations*self.chi
 
         self.aOp = self.a.full()
@@ -125,7 +125,7 @@ class SimpleCavityEnv(gym.Env):
         self.a_plus_ad_Op = self.aOp + self.adOp
 
 
-        self.H0=np.zeros(( 2**8, self.Nstates, self.Nstates),dtype="complex")
+        self.H0=np.zeros(( 2**self.N, self.Nstates, self.Nstates),dtype="complex")
         for i in range(len(self.P)):
             self.H0[i] =np.sum(np.matmul(self.adaOp, self.P[i]),axis=0)
 
