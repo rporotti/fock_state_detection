@@ -288,7 +288,7 @@ class SimpleCavityEnv(gym.Env):
             if self.num_actions > 2:
                 action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
 
-                appo=np.pad(action[2:], (0,10-self.num_actions),mode="constant",constant_values=(None,1))
+                appo=np.pad(action[2:], (0,self.num_actions-2-self.N),mode="constant",constant_values=(None,1))
 
                 number=int("".join([str(int(i)) for i in appo]),2)
                 #print(appo,number)
