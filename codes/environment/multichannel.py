@@ -64,12 +64,14 @@ class SimpleCavityEnv(gym.Env):
         if self.filter:
             self.observations_filters = np.zeros((self.T, self.size_filters, 2, self.N,))
         self.total_rewards = [0]
-        self.probs_final = []
+        self.probs_final = [0]
         self.total_success = []
         self.success = 0
         self.av_tries = np.zeros(self.save_every)
         self.integrals = np.zeros((self.T, 2, self.N))
         self.std_rewards = [0]
+        self.std_probs_final= [0]
+        self.probs_final = [0]
         self.rews = []
         self.successes = []
         self.fidelities = np.zeros(self.T)
@@ -524,7 +526,7 @@ class SimpleCavityEnv(gym.Env):
         #         print("Last " + str(self.save_every) + " episodes, prob. success=" + str(
         #             np.mean(self.total_rewards[-self.save_every:])))
         #         self.render()
-        self.probs_final.append(self.fidelity)
+        #self.probs_final.append(self.fidelity)
         self.rews.append(np.sum(self.rewards))
 
         if not self.testing:
@@ -539,14 +541,17 @@ class SimpleCavityEnv(gym.Env):
             if self.mpi:
                 total_rewards = np.mean(self.hf["rewards"][:, 0], axis=0)
                 std_rewards = np.std(self.hf["rewards"][:, 0], axis=0)
-                self.probs_fin = self.hf["probs_fin"][:, 0]
+                probs_fin = np.mean(self.hf["probs_fin"][:, 0], axis=0)
+                std_probs_fin = np.std(self.hf["probs_fin"][:, 0], axis=0)
             else:
                 total_rewards = np.mean(self.arr[:, 0])
                 std_rewards = np.std(self.arr[:, 0])
-                self.probs_fin = self.arr[:, 1]
+                probs_fin = np.mean(self.arr[:, 1])
+                std_probs_fin = np.std(self.arr[:, 1])
             self.total_rewards.append(total_rewards)
             self.std_rewards.append(np.sqrt(std_rewards))
-
+            self.probs_final.append(probs_fin)
+            self.std_probs_final.append(std_probs_fin)
             if self.ep % self.save_every == 0:
                 self.render()
         self.ep += 1
@@ -589,12 +594,12 @@ class SimpleCavityEnv(gym.Env):
             self.ax_histo_cumulative = self.figure.add_subplot(gs[1 + offset, -2:])
 
             #self.ax_histo2.get_xaxis().set_visible(False)
-            self.ax_histo_cumulative.get_yaxis().set_visible(False)
-            self.ax_histo_cumulative.get_xaxis().set_ticks(np.linspace(0, 1, 5))
-            self.ax_histo_cumulative.set_xticklabels([])
-            self.ax_histo_cumulative.set_ylabel("# cases")
-            self.ax_histo_cumulative.set_ylabel("Fidelity")
-            self.ax_histo_cumulative.set_xlim(0, 1)
+            #self.ax_histo_cumulative.get_yaxis().set_visible(False)
+            #self.ax_histo_cumulative.get_xaxis().set_ticks(np.linspace(0, 1, 5))
+            #self.ax_histo_cumulative.set_xticklabels([])
+            #self.ax_histo_cumulative.set_ylabel("# cases")
+            #self.ax_histo_cumulative.set_ylabel("Fidelity")
+            self.ax_histo_cumulative.set_ylim(0, 1)
 
         # self.ax_trace.yaxis.set_ticks_position('both')
         self.ax_trace.tick_params(axis='y', which='both', labelleft='on', labelright='on')
@@ -625,6 +630,7 @@ class SimpleCavityEnv(gym.Env):
             # self.ax_reward.plot([],[],marker="o",
             #                   markersize=2,markerfacecolor="blue",markeredgecolor="blue")
             self.ax_reward.plot(x, self.total_rewards)
+            self.ax_histo_cumulative.plot(x, self.probs_final)
 
         self.ax_rew_ep = self.figure.add_subplot(gs[offset, -1])
         # self.ax_rew_ep.get_xaxis().set_visible(False)
@@ -761,11 +767,12 @@ class SimpleCavityEnv(gym.Env):
 
             # print(np.array(self.probs_final))
             bins = 200
-
-            self.ax_histo_cumulative.cla()
-            self.probs_final.append(self.probs_fin)
-            out = self.ax_histo_cumulative.hist(self.probs_fin, bins=20, range=(0, 1), density=True)
-            self.ax_histo_cumulative.set_xlim(0, 1)
+            self.ax_histo_cumulative.collections.clear()
+            self.ax_histo_cumulative.lines[0].set_data(x, self.probs_final)
+            self.ax_histo_cumulative.set_xlim(1, self.ep * self.ntraj)
+            self.ax_histo_cumulative.fill_between(x,
+                                        np.subtract(self.probs_final, self.std_probs_final),
+                                        np.add(self.probs_final, self.std_probs_final), alpha=0.2, color="blue")
 
         for count in range(self.N):
             i = int(count / 4)
