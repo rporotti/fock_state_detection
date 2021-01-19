@@ -638,6 +638,7 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep.set_xlim(0, self.tlist[-1])
         self.ax_rew_ep.set_ylim(0, 1)
         self.ax_rew_ep.plot(self.tlist, appo)
+        self.ax_rew_ep.plot(self.tlist, appo)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
         if self.num_actions==1:
@@ -735,7 +736,9 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[-3,2].lines[1].set_ydata(self.purity)
 
         self.ax_rew_ep.lines[0].set_xdata(self.tlist)
-        self.ax_rew_ep.lines[0].set_ydata(self.fidelities)
+        self.ax_rew_ep.lines[0].set_ydata(self.rewards)
+        self.ax_rew_ep.lines[1].set_xdata(self.tlist)
+        self.ax_rew_ep.lines[1].set_ydata(self.fidelities)
         # if self.measurement_operator is not None:
         #     self.axes[-2,3].lines[0].set_xdata(self.tlist)
         #     self.axes[-2,3].lines[0].set_ydata(self.meas)
