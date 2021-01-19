@@ -486,7 +486,7 @@ class SimpleCavityEnv(gym.Env):
         # self.compute_fidelity()
         rew =((    self.fidelity   ) ** self.power_reward    )/self.T
         #self.rew_init
-
+        rew_not_normalized = (self.fidelity) ** self.power_reward
 
 
         # p=np.abs(np.real(self.probabilities[:,self.t-1]))
@@ -501,10 +501,11 @@ class SimpleCavityEnv(gym.Env):
         #     rew=self.fidelity
         # else:
         #     rew=0
-        self.fidelities[self.t - 1] = self.fidelity
-        self.rewards[self.t - 1] = rew
+        self.fidelities[self.t] = self.fidelity
+        self.rewards[self.t] = rew
 
-        return rew
+
+        return rew_not_normalized
 
     def set_rho_init(self, init_state):
         self.Rho_initial = init_state.full()
@@ -638,7 +639,10 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep.set_xlim(0, self.tlist[-1])
         self.ax_rew_ep.set_ylim(0, 1)
         self.ax_rew_ep.plot(self.tlist, appo)
-        self.ax_rew_ep.plot(self.tlist, appo)
+        self.ax_rew_ep_dual=self.ax_rew_ep.twinx()
+        self.ax_rew_ep_dual.plot(self.tlist, appo,color="orange")
+        self.ax_rew_ep_dual.set_xlim(0, self.tlist[-1])
+        self.ax_rew_ep_dual.set_ylim(0, 1)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
         if self.num_actions==1:
@@ -736,9 +740,9 @@ class SimpleCavityEnv(gym.Env):
         # self.axes[-3,2].lines[1].set_ydata(self.purity)
 
         self.ax_rew_ep.lines[0].set_xdata(self.tlist)
-        self.ax_rew_ep.lines[0].set_ydata(self.rewards)
-        self.ax_rew_ep.lines[1].set_xdata(self.tlist)
-        self.ax_rew_ep.lines[1].set_ydata(self.fidelities)
+        self.ax_rew_ep.lines[0].set_ydata(self.fidelities)
+        self.ax_rew_ep_dual.lines[0].set_xdata(self.tlist)
+        self.ax_rew_ep_dual.lines[0].set_ydata(self.rewards*self.T)
         # if self.measurement_operator is not None:
         #     self.axes[-2,3].lines[0].set_xdata(self.tlist)
         #     self.axes[-2,3].lines[0].set_ydata(self.meas)
