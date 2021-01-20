@@ -72,6 +72,8 @@ class SimpleCavityEnv(gym.Env):
         self.std_rewards = [0]
         self.std_probs_final= [0]
         self.probs_final = [0]
+
+        self.fid_finals = [0]
         self.rews = []
         self.successes = []
         self.fidelities = np.zeros(self.T)
@@ -149,6 +151,44 @@ class SimpleCavityEnv(gym.Env):
         else:
             self.ntraj = dic["ntraj"]
 
+        self.dic = dic
+        self.N = dic["N"]
+        self.chi = dic["chi"]
+        self.Nstates = dic["Nstates"]  # Hilbert space
+        self.kappa = dic["decay"]  # non-observed decay
+        self.kappa_meas = dic["meas_rate"]  # measured channel
+        self.kappa_dephasing = dic["dephasing"]  # measured channel
+        self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
+        self.T = dic["timesteps"]  # total time span
+        self.T_max = dic["T_max"]
+        if self.kappa_meas > 0:
+            self.T_max *= self.kappa_meas
+        self.obs = dic["obs"]
+        self.meas_type = dic["meas"]
+        self.num_actions = dic["num_actions"]
+        self.capped = dic["capped_to_zero"]
+        self.size_filters = dic["size_filters"]
+        self.power_reward = dic["power_reward"]
+        psi_init = split_string(self.Nstates, dic["init_state"])
+        self.Rho_initial = psi_init.proj().full()
+        psi_target = split_string(self.Nstates, dic["target_state"])
+        self.Rho_target = psi_target.proj().full()
+
+        self.RL_steps = int(dic["RL_steps"])
+
+        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps) / self.kappa_meas
+        self.fixed_seed = dic["fixed_seed"]
+        self.multiplier = float(dic["multiplier"])
+        self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
+
+        self.tlist = np.linspace(0, self.T_max, self.T)
+        self.last_timesteps = dic["last_timesteps"]
+        self.filter = dic["filter"]
+        self.discrete = dic["discrete"]
+        self.save_every = dic["save_every"]
+        self.scale = np.sqrt(self.kappa_meas)
+
+
         if not self.testing:
             if self.counter == 0 and self.rank == 0:
                 direc = create_dir(dic)
@@ -175,7 +215,7 @@ class SimpleCavityEnv(gym.Env):
                 self.hf = h5py.File(self.direc + '/data.hdf5', 'a', driver='mpio', comm=MPI.COMM_WORLD)
                 self.hf.create_dataset('rewards', (MPI.COMM_WORLD.size, 1), chunks=True)
                 self.hf.create_dataset('probs_fin', (MPI.COMM_WORLD.size, 1), chunks=True)
-
+                #self.hf.create_dataset('density_matrix', (MPI.COMM_WORLD.size, 2 * self.Nstates * self.Nstates), chunks=True)
             else:
                 if self.counter == 0:
                     for _ in range(self.ntraj):
@@ -188,42 +228,7 @@ class SimpleCavityEnv(gym.Env):
 
             # print(multiprocessing.current_process())
 
-        self.dic = dic
-        self.N = dic["N"]
-        self.chi = dic["chi"]
-        self.Nstates = dic["Nstates"]  # Hilbert space
-        self.kappa = dic["decay"]  # non-observed decay
-        self.kappa_meas = dic["meas_rate"]  # measured channel
-        self.kappa_dephasing = dic["dephasing"]  # measured channel
-        self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
-        self.T = dic["timesteps"]  # total time span
-        self.T_max = dic["T_max"]
-        if self.kappa_meas>0:
-            self.T_max*=self.kappa_meas
-        self.obs = dic["obs"]
-        self.meas_type = dic["meas"]
-        self.num_actions = dic["num_actions"]
-        self.capped = dic["capped_to_zero"]
-        self.size_filters = dic["size_filters"]
-        self.power_reward = dic["power_reward"]
-        psi_init = split_string(self.Nstates, dic["init_state"])
-        self.Rho_initial = psi_init.proj().full()
-        psi_target = split_string(self.Nstates, dic["target_state"])
-        self.Rho_target = psi_target.proj().full()
 
-        self.RL_steps = int(dic["RL_steps"])
-
-        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)/self.kappa_meas
-        self.fixed_seed = dic["fixed_seed"]
-        self.multiplier = float(dic["multiplier"])
-        self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
-
-        self.tlist = np.linspace(0, self.T_max, self.T)
-        self.last_timesteps = dic["last_timesteps"]
-        self.filter = dic["filter"]
-        self.discrete = dic["discrete"]
-        self.save_every = dic["save_every"]
-        self.scale = np.sqrt(self.kappa_meas)
     #         if self.folder!="" and self.counter==0 and self.rank==0:
     #             self.summary = open("../simulations/"+self.folder+"/summary.txt","a",os.O_NONBLOCK)
     #             self.summary.write(self.info+"\t")
@@ -418,11 +423,11 @@ class SimpleCavityEnv(gym.Env):
 
         obs = self._get_obs()
         reward = self.getReward()  #####-1/8*(  np.sqrt(action[0]**2+action[1]**2)  )
-        self.t += 1
-        if self.t >= self.T:
+
+        if self.t >= self.T-1:
             self.done = True
             self.end_episode()
-
+        self.t += 1
 
         return obs, reward, self.done, {}
 
@@ -534,6 +539,7 @@ class SimpleCavityEnv(gym.Env):
             if self.mpi:
                 self.hf["rewards"][self.rank] = np.sum(self.rewards)
                 self.hf["probs_fin"][self.rank] = self.fidelity
+                #self.hf["density_matrix"][self.rank] = self._get_obs()
             else:
                 self.arr[self.counter, 0] = np.sum(self.rewards)
                 self.arr[self.counter, 1] = self.fidelity
@@ -544,6 +550,11 @@ class SimpleCavityEnv(gym.Env):
                 std_rewards = np.std(self.hf["rewards"][:, 0], axis=0)
                 probs_fin = np.mean(self.hf["probs_fin"][:, 0], axis=0)
                 std_probs_fin = np.std(self.hf["probs_fin"][:, 0], axis=0)
+                #dens_mat_sum=np.mean(self.hf["density_matrix"], axis=0)
+                #dens_mat=dens_mat_sum[:self.Nstates*self.Nstates]+1j*dens_mat_sum[-self.Nstates * self.Nstates:]
+                #dens_mat=dens_mat.reshape(self.Nstates,self.Nstates)
+                #fid_final=abs(np.trace(scipy.linalg.sqrtm(np.matmul(np.matmul(self.sqrtRhoGoal, dens_mat), self.sqrtRhoGoal)))) ** 2
+
             else:
                 total_rewards = np.mean(self.arr[:, 0])
                 std_rewards = np.std(self.arr[:, 0])
@@ -553,6 +564,8 @@ class SimpleCavityEnv(gym.Env):
             self.std_rewards.append(np.sqrt(std_rewards))
             self.probs_final.append(probs_fin)
             self.std_probs_final.append(std_probs_fin)
+
+            #self.fid_finals.append(fid_final)
             if self.ep % self.save_every == 0:
                 self.render()
         self.ep += 1
@@ -632,6 +645,7 @@ class SimpleCavityEnv(gym.Env):
             #                   markersize=2,markerfacecolor="blue",markeredgecolor="blue")
             self.ax_reward.plot(x, self.total_rewards)
             self.ax_histo_cumulative.plot(x, self.probs_final)
+            #self.ax_histo_cumulative.plot(x, self.probs_final, color="red")
 
         self.ax_rew_ep = self.figure.add_subplot(gs[offset, -1])
         # self.ax_rew_ep.get_xaxis().set_visible(False)
@@ -780,7 +794,7 @@ class SimpleCavityEnv(gym.Env):
             self.ax_histo_cumulative.fill_between(x,
                                         np.subtract(self.probs_final, self.std_probs_final),
                                         np.add(self.probs_final, self.std_probs_final), alpha=0.2, color="blue")
-
+            #self.ax_histo_cumulative.lines[1].set_data(x, self.fid_finals)
         for count in range(self.N):
             i = int(count / 4)
             j = count % 4
@@ -814,7 +828,6 @@ class SimpleCavityEnv(gym.Env):
                 if self.folder != "":
                     a_file = open(self.direc + "/../summaries/summary_" + self.info + ".txt", "a")
                     a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
-                    print(self.info, self.direc)
                     a_file.close()
 
                     self.figure.savefig(
