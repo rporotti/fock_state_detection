@@ -812,8 +812,9 @@ class SimpleCavityEnv(gym.Env):
             self.figure.savefig(self.direc + "/" + str(self.ep) + "_reward.png")
             if self.ep % self.save_every == 0:
                 if self.folder != "":
-                    a_file = open(self.direc + "/../summaries/summary_" + self.info + ".txt", "w")
-                    a_file.write(" ".join(str(np.round(item / 20, 3)) for item in out[0]))
+                    a_file = open(self.direc + "/../summaries/summary_" + self.info + ".txt", "a")
+                    a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
+                    print(self.info, self.direc)
                     a_file.close()
 
                     self.figure.savefig(

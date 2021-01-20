@@ -52,7 +52,7 @@ if __name__ == '__main__':
     elif args.algorithm=="DDPG":
         model = stable_baselines.DDPG(policy, env, verbose=1, param_noise=param_noise, action_noise=action_noise)
     else:
-        model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1,entcoeff=0.0)
+        model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1,entcoeff=args.entcoeff)
     
         
     #from stable_baselines.common.callbacks import CheckpointCallback
