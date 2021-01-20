@@ -561,7 +561,7 @@ class SimpleCavityEnv(gym.Env):
                 probs_fin = np.mean(self.arr[:, 1])
                 std_probs_fin = np.std(self.arr[:, 1])
             self.total_rewards.append(total_rewards)
-            self.std_rewards.append(np.sqrt(std_rewards))
+            self.std_rewards.append(std_rewards)
             self.probs_final.append(probs_fin)
             self.std_probs_final.append(std_probs_fin)
 
