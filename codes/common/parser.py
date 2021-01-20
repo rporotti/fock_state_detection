@@ -59,7 +59,7 @@ parser.add_argument('--algorithm', type=str, default="PPO1", help='RL Algorithm 
 
 parser.add_argument('--timesteps_per_actorbatch', type=int, default=256)
 parser.add_argument('--clip_param', type=float, default=0.2)
-parser.add_argument('--entcoeff', type=float, default=0.01)
+parser.add_argument('--entcoeff', type=float, default=0.0)
 parser.add_argument('--optim_epochs', type=int, default=4)
 parser.add_argument('--optim_stepsize', type=int, default=0.001)
 parser.add_argument('--optim_batchsize', type=int, default=64)
