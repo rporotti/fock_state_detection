@@ -114,12 +114,13 @@ class SimpleCavityEnv(gym.Env):
 
 
         if self.num_actions<=2:
-            self.P = np.zeros((2, self.N, self.Nstates, self.Nstates))
-            self.P[:,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
+            self.P = np.zeros((1, self.N, self.Nstates, self.Nstates))
+            self.P[0 ,np.arange(self.N), np.arange(self.N),np.arange(self.N)]=self.chi
         else:
-            self.P = np.zeros((2**self.N, self.N, self.Nstates, self.Nstates))
-            self.combinations = np.array(list(itertools.product([0, 1], repeat=self.N)))
-            self.P[:, np.arange(self.N), np.arange(self.N), np.arange(self.N)]=self.combinations*self.chi
+            if not self.continuos_meas_rate:
+                self.P = np.zeros((2**self.N, self.N, self.Nstates, self.Nstates))
+                self.combinations = np.array(list(itertools.product([0, 1], repeat=self.N)))
+                self.P[:, np.arange(self.N), np.arange(self.N), np.arange(self.N)]=self.combinations*self.chi
 
         self.aOp = self.a.full()
         self.adOp = self.ad.full()
@@ -128,10 +129,10 @@ class SimpleCavityEnv(gym.Env):
         self.adaOp_square = np.matmul(self.adaOp, self.adaOp)
         self.a_plus_ad_Op = self.aOp + self.adOp
 
-
-        self.H0=np.zeros(( 2**self.N, self.Nstates, self.Nstates),dtype="complex")
-        for i in range(len(self.P)):
-            self.H0[i] =np.sum(np.matmul(self.adaOp, self.P[i]),axis=0)
+        if not self.continuos_meas_rate:
+            self.H0=np.zeros(( 2**self.N, self.Nstates, self.Nstates),dtype="complex")
+            for number in range(len(self.P)):
+                self.H0[number] =np.sum(np.matmul(self.adaOp, self.P[number]),axis=0)
 
     def init_var(self, args, dataset):
         rank = MPI.COMM_WORLD.Get_rank()
@@ -187,7 +188,7 @@ class SimpleCavityEnv(gym.Env):
         self.discrete = dic["discrete"]
         self.save_every = dic["save_every"]
         self.scale = np.sqrt(self.kappa_meas)
-
+        self.continuos_meas_rate=dic["continuos_meas_rate"]
 
         if not self.testing:
             if self.counter == 0 and self.rank == 0:
@@ -288,21 +289,32 @@ class SimpleCavityEnv(gym.Env):
                 action[:2] *= self.max_displ_per_step
 
             number=0
-            if self.num_actions == 1:
+
+            if self.num_actions==1:
                 alpha = action[0]
-            else:
+            if self.num_actions >= 2:
                 alpha = (action[0] + 1j * action[1]) / np.sqrt(2)
-            if self.num_actions > 2:
-                action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
 
-                appo=np.pad(action[2:], (0,self.num_actions-2-self.N),mode="constant",constant_values=(None,1))
+            if self.num_actions<= 2:
+                P = self.P[0]
+                H0 = self.H0[0]
+            else:
+                if self.continuos_meas_rate:
+                    action[2:]=(action[2:]+1)/2
+                    P = np.zeros((self.N, self.Nstates, self.Nstates))
+                    P[np.arange(self.N), np.arange(self.N), np.arange(self.N)] =1
+                    H0 = np.sum(action[2:,None,None]* np.matmul(self.adaOp, P),axis=0)
 
-                number=int("".join([str(int(i)) for i in appo]),2)
-                #print(appo,number)
-            P=self.P[number]
 
-        self.H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
-        H = self.H_displacement+self.H0[number]
+                else:
+                    action[2:]=np.ceil(np.array(action)[2:]).clip(min=0)
+                    appo=np.pad(action[2:], (0,self.num_actions-2-self.N),mode="constant",constant_values=(None,1))
+                    number=int("".join([str(int(i)) for i in appo]),2)
+                    P=self.P[number]
+                    H0=self.H0[number]
+
+        H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
+        H = np.add(H_displacement,H0)
 
         for step in range(self.numberPhysicsMicroSteps):
 
