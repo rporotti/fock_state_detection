@@ -663,12 +663,13 @@ class SimpleCavityEnv(gym.Env):
         # self.ax_rew_ep.get_xaxis().set_visible(False)
         # self.ax_rew_ep.get_yaxis().set_visible(False)
         self.ax_rew_ep.set_xlim(0, self.tlist[-1])
-        self.ax_rew_ep.set_ylim(0, 1)
+        self.ax_rew_ep.set_ylim(0, 1.1)
+        self.ax_rew_ep.hlines(1,0, self.tlist[-1], color="gray", linestyle="dashed")
         self.ax_rew_ep.plot(self.tlist, appo)
         self.ax_rew_ep_dual=self.ax_rew_ep.twinx()
         self.ax_rew_ep_dual.plot(self.tlist, appo,color="orange")
         self.ax_rew_ep_dual.set_xlim(0, self.tlist[-1])
-        self.ax_rew_ep_dual.set_ylim(0, 1)
+        self.ax_rew_ep_dual.set_ylim(0, 1.1)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
         if self.num_actions==1:
