@@ -50,8 +50,7 @@ class SimpleCavityEnv(gym.Env):
             self.create_figure()
 
     def _seed(self, seed):
-        np.random.RandomState(seed)
-
+        self.rand=np.random.RandomState(seed)
 
     def set_placeholders(self):
         self.xwigner = np.linspace(-5, 5, 100)
@@ -268,7 +267,9 @@ class SimpleCavityEnv(gym.Env):
 
         if self.fixed_seed:
             np.random.seed(0)
-
+            self.rand=np.random.RandomState(0)
+        else:
+            self.rand=np.random.RandomState()
         return self._get_obs()
 
     def step(self, action):
@@ -379,7 +380,7 @@ class SimpleCavityEnv(gym.Env):
                             0.5 * (np.matmul(P, self.Rho + k3 / 2) + np.matmul(self.Rho + k3 / 2, P)))
                 dissipator = 1 / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
-                dW = np.random.randn(self.N) * np.sqrt(self.dt)
+                dW = self.rand.randn(self.N) * np.sqrt(self.dt)
                 temp = np.matmul(P, self.Rho) + np.matmul(self.Rho, P)
                 quadrature = np.real(np.trace(temp, axis1=1, axis2=2))
                 self.X[0] = np.sqrt(self.kappa_meas / 2) * quadrature + dW / self.dt
