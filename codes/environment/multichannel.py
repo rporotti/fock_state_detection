@@ -49,6 +49,10 @@ class SimpleCavityEnv(gym.Env):
         if self.counter == 0 and self.rank == 0 and self.viewer:
             self.create_figure()
 
+    def _seed(self, seed):
+        np.random.RandomState(seed)
+
+
     def set_placeholders(self):
         self.xwigner = np.linspace(-5, 5, 100)
         self.cavity = np.zeros(self.T)
