@@ -56,8 +56,9 @@ if __name__ == '__main__':
 
 
     if args.save_model:
+        print("prova)
         from stable_baselines.common.callbacks import CheckpointCallback
-        callback = CheckpointCallback(save_freq=int(1E6), save_path=env.get_attr("direc")[0] + "/model")
+        callback = CheckpointCallback(save_freq=int(1E4), save_path=env.get_attr("direc")[0] + "/model")
     else:
         callback=None
     model.learn(int(args.RL_steps),callback=callback)
