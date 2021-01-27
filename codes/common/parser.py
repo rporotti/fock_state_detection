@@ -51,7 +51,7 @@ parser.add_argument('--mpi', action="store_true", help='Use MPI on cluster')
 parser.add_argument('--stop_best', action="store_true", help='Stop the training after best')
 parser.add_argument('--stop_after', type=int, default=-1, help='Stop the training after this number of epochs')
 parser.add_argument('--save_every', type=int, default=1, help='Save figure every save_every episodes')
-
+parser.add_argument('--save_model', action="store_true", help='Save the model every ')
 
 parser.add_argument('--HER',dest="HER",action="store_true", help='Use HER')
 parser.add_argument('--algorithm', type=str, default="PPO1", help='RL Algorithm (PPO1, PPO2, TRPO, DDPG, SAC)')

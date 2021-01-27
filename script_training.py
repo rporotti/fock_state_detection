@@ -53,9 +53,12 @@ if __name__ == '__main__':
         model = stable_baselines.DDPG(policy, env, verbose=1, param_noise=param_noise, action_noise=action_noise)
     else:
         model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1,entcoeff=args.entcoeff)
-    
-        
-    #from stable_baselines.common.callbacks import CheckpointCallback
-    #checkpoint_callback = CheckpointCallback(save_freq=100000, save_path=env.get_attr("direc")[0] + "/model")
-    #model.learn(int(args.RL_steps),callback=checkpoint_callback)
-    model.learn(int(args.RL_steps))
+
+
+    if args.save_model:
+        from stable_baselines.common.callbacks import CheckpointCallback
+        callback = CheckpointCallback(save_freq=int(1E6), save_path=env.get_attr("direc")[0] + "/model")
+    else:
+        callback=None
+    model.learn(int(args.RL_steps),callback=callback)
+

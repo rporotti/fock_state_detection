@@ -46,7 +46,7 @@ class SimpleCavityEnv(gym.Env):
         self.steps = 0
         self.figure = None
 
-        if self.counter == 0 and self.rank == 0:
+        if self.counter == 0 and self.rank == 0 and self.viewer:
             self.create_figure()
 
     def set_placeholders(self):
