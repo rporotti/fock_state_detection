@@ -102,7 +102,7 @@ class SimpleCavityEnv(gym.Env):
                                                         dtype=np.float32)
         if self.obs == "density_matrix":
             self.MsmtTrace = np.zeros((self.last_timesteps, 1, self.N))
-            self.observation_space = gym.spaces.Box(low=-1., high=1., shape=(2 * self.Nstates * self.Nstates,),
+            self.observation_space = gym.spaces.Box(low=-1., high=1., shape=(2 * self.N_obs_rho * self.N_obs_rho,),
                                                     dtype=np.float32)
         if self.obs == "diagonal":
             self.MsmtTrace = np.zeros((self.last_timesteps, 1, self.N))
@@ -154,6 +154,7 @@ class SimpleCavityEnv(gym.Env):
 
         self.dic = dic
         self.N = dic["N"]
+        self.N_obs_rho = dic["N_obs_rho"]
         self.chi = dic["chi"]
         self.Nstates = dic["Nstates"]  # Hilbert space
         self.kappa = dic["decay"]  # non-observed decay
@@ -480,7 +481,7 @@ class SimpleCavityEnv(gym.Env):
         if self.obs == "time":
             return np.array(self.t)
         if self.obs == "density_matrix":
-            a = self.Rho.flatten()
+            a = self.Rho[:self.N_obs_rho,:self.N_obs_rho].flatten()
             obs = np.concatenate((np.real(a), np.imag(a)), axis=None)
 
             return obs

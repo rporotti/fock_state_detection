@@ -11,6 +11,7 @@ parser.add_argument('--decay', type=float, default=0, help='Decay rate (default 
 parser.add_argument('--meas_rate', type=float, default=25.0, help='Measurement rate (default at 0)')
 parser.add_argument('--dephasing', type=float, default=0, help='Dephasing rate (default at 0)')
 parser.add_argument('--N', type=int, default=8, help='Output channels')
+parser.add_argument('--N_obs_rho', type=int, default=10, help='Up to which n for density matrix obs')
 parser.add_argument('--chi', type=float, default=1)
 
 parser.add_argument('--ntraj', type=int, default=1, help='Number of RL env to run in parallel (default at 1)')
