@@ -51,8 +51,15 @@ if __name__ == '__main__':
         model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj)
     elif args.algorithm=="DDPG":
         model = stable_baselines.DDPG(policy, env, verbose=1, param_noise=param_noise, action_noise=action_noise)
+    elif args.algorithm == "PPO1":
+        model = stable_baselines.PPO1(policy, env, verbose=1,gamma=args.gamma,
+                                      timesteps_per_actorbatch=args.timesteps_per_actorbatch,
+                                      clip_param=args.clip_param, entcoeff=args.entcoeff,
+                                      optim_epochs=args.optim_epochs,
+                                      optim_stepsize=args.optim_stepsize, optim_batchsize=args.optim_batchsize,
+                                      lam=args.lam, adam_epsilon=args.adam_epsilon)
     else:
-        model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1,entcoeff=args.entcoeff)
+        model = getattr(stable_baselines, args.algorithm)(policy, env, verbose=1)
 
 
     if args.save_model:
