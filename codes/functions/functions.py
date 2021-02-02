@@ -60,7 +60,7 @@ def create_info(args):
     exclude_list=["HER","animation","load_parameters","same",
      "mode","mpi", "lstm","stop_best","fixed_seed", "folder",
                   "filter","discrete","capped_to_zero","main_folder",
-                  "continuos_meas_rate"]
+                  "continuos_meas_rate", "save_model"]
     for i in range(1,len(sys.argv)):
         if sys.argv[i].startswith("--"):
             line=sys.argv[i].split("--")[1]
