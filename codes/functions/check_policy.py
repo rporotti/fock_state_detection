@@ -4,7 +4,7 @@ from codes.plotting.plot import plot_env
 from codes.plotting.animation import plot_animation
 from codes.environment.multichannel import SimpleCavityEnv
 
-def load_info(direc):
+def load_info(direc, print=False):
     with open(direc+"/info.txt") as infile:
         args={}
         line=infile.readline()
@@ -24,8 +24,9 @@ def load_info(direc):
 
             args.update( {name : value} )
             line=infile.readline()
-    print("Values loaded from "+ direc+":")
-    print(args)
+    if print is True:
+        print("Values loaded from "+ direc+":")
+        print(args)
     return args
 
 def check_policy(rho_init, rho_target,folder_policy):
