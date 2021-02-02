@@ -190,6 +190,7 @@ class SimpleCavityEnv(gym.Env):
         self.save_every = dic["save_every"]
         self.scale = np.sqrt(self.kappa_meas)
         self.continuos_meas_rate=dic["continuos_meas_rate"]
+        self.name_folder=dic["name_folder"]
 
         if not self.testing:
             if self.counter == 0 and self.rank == 0:
@@ -843,12 +844,16 @@ class SimpleCavityEnv(gym.Env):
             self.figure.savefig(self.direc + "/" + str(self.ep) + "_reward.png")
             if self.ep % self.save_every == 0:
                 if self.folder != "":
-                    a_file = open(self.direc + "/../summaries/summary_" + self.info + ".txt", "a")
+                    if self.name_folder!="":
+                        info_cleaned=self.name_folder
+                    else:
+                        info_cleaned="_".join(self.info.split("_")[2:])
+                    a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
                     a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
                     a_file.close()
 
                     self.figure.savefig(
-                        self.direc + "/../current/current_status_" + self.info + ".png")
+                        self.direc + "/../current/current_status_" + info_cleaned + ".png")
             if self.total_rewards[-1] > self.best_reward:
                 self.best_reward = self.total_rewards[-1]
 
