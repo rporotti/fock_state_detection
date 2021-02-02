@@ -23,10 +23,14 @@ def create_dir(args):
             if mode=="jupyter":
                 direc=main_folder+"jupyter_"+info
             if mode=="script":
+                direc = main_folder
                 if args["folder"]!="":
-                    direc=main_folder+"/"+folder+"/"+info
+                    direc+="/"+folder
+                if args["name_folder"] != "":
+                    direc+="/" + args["name_folder"]
                 else:
-                    direc=main_folder+"/"+info
+                    direc += "/" + info
+
                 if os.path.isdir(direc):
                     _add="_"+hour
 #                    i=2
@@ -60,7 +64,7 @@ def create_info(args):
     exclude_list=["HER","animation","load_parameters","same",
      "mode","mpi", "lstm","stop_best","fixed_seed", "folder",
                   "filter","discrete","capped_to_zero","main_folder",
-                  "continuos_meas_rate", "save_model"]
+                  "continuos_meas_rate", "save_model", "name_folder"]
     for i in range(1,len(sys.argv)):
         if sys.argv[i].startswith("--"):
             line=sys.argv[i].split("--")[1]

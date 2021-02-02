@@ -37,7 +37,7 @@ parser.add_argument('--power_reward', type=float, default=1, help='Default at 1'
 parser.add_argument('--info', type=str, default="", help='additional info for the saving folder (default at None)')
 
 parser.add_argument('--folder', type=str, default="", help='Saving folder (optional)')
-
+parser.add_argument('--name_folder', type=str, default="", help='Override folder')
 parser.add_argument('--folder_policy', type=str, default="", help='Folder for the policy (if check_policy is True)')
 parser.add_argument('--animation', action="store_true", help='To animate the simulation')
 parser.add_argument('--simulation', action="store_true", help='To plot a simulation')
