@@ -675,12 +675,16 @@ class SimpleCavityEnv(gym.Env):
         self.ax_rew_ep_dual.set_ylim(0, 1.1)
 
         self.ax_trace.plot(self.tlist, appo, lw=lw, color="black")
+        appo_mean = np.full(int(self.T / self.t_mean), None)
         if self.num_actions==1:
             self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
+            self.axes_actions.step(self.tlist_mean, appo_mean, lw=lw, color="red")
             self.axes_actions.set_ylabel(r"$|\alpha|$", labelpad=0);
         if self.num_actions > 1:
-            self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$", alpha=0.5)
-            self.axes_actions.step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$", alpha=0.5)
+            self.axes_actions.step(self.tlist, appo, color="red", label=r"$Re[\alpha]$", alpha=0.3)
+            self.axes_actions.step(self.tlist_mean, appo_mean, color="red")
+            self.axes_actions.step(self.tlist, appo, color="blue", label=r"$Im[\alpha]$", alpha=0.2)
+            self.axes_actions.step(self.tlist_mean, appo_mean, color="blue")
             self.axes_actions.set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
         self.axes_actions.legend()
         self.axes_actions.set_xlim(0, self.tlist[-1])
@@ -691,7 +695,7 @@ class SimpleCavityEnv(gym.Env):
             self.axes_meas=self.figure.add_subplot(gs[offset+2, :-2])
             self.axes_meas.set_xlabel(r"t [$1/\kappa_{meas}$]")
             self.axes_meas.set_xlim(0, self.tlist[-1])
-            appo_mean = np.full(int(self.T / self.t_mean), None)
+
             for act in range(self.num_actions-2):
 
                 self.axes_meas.hlines(act, 0, self.tlist[-1], color="gray", linestyle="dashed", alpha=0.5)
@@ -797,12 +801,12 @@ class SimpleCavityEnv(gym.Env):
         count = 0
         self.axes_actions.lines[0].set_xdata(self.tlist)
         self.axes_actions.lines[0].set_ydata(self.actions_plot[0, :])
-
-        self.axes_actions.step(self.tlist_mean, np.mean(self.actions_plot[0, :].reshape(-1, self.t_mean), axis=1), color='red')
+        self.axes_actions.lines[1].set_xdata(self.tlist_mean)
+        self.axes_actions.lines[1].set_ydata(np.mean(self.actions_plot[0, :].reshape(-1, self.t_mean), axis=1))
         if self.num_actions > 1:
-            self.axes_actions.lines[1].set_ydata(self.actions_plot[1, :])
-            self.axes_actions.step(self.tlist_mean, np.mean(self.actions_plot[1, :].reshape(-1, self.t_mean), axis=1), color='blue')
-
+            self.axes_actions.lines[2].set_ydata(self.actions_plot[1, :])
+            self.axes_actions.lines[3].set_xdata(self.tlist_mean)
+            self.axes_actions.lines[3].set_ydata(np.mean(self.actions_plot[1, :].reshape(-1, self.t_mean), axis=1))
 
 
 
@@ -877,9 +881,9 @@ class SimpleCavityEnv(gym.Env):
             if self.ep % self.save_every == 0:
                 if self.folder != "":
                     if self.name_folder!="":
-                        info_cleaned=self.name_folder+'_'+self.direc.split("_")[-1]
+                        info_cleaned=self.name_folder
                     else:
-                        info_cleaned="_".join(self.info.split("_")[2:])
+                        info_cleaned="_".join(self.info.split("_")[2:])+'_'+self.direc.split("_")[-1]
                     #a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
                     #a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
                     with open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", 'w') as f:
