@@ -118,6 +118,7 @@ def split_string(N_states,s):
 
 
 def generate_state(N_states, state_str):
+    state_str=str(state_str)
     if "|" in state_str:
         state = qt.Qobj()
         for s in re.split('[- +]', state_str):
