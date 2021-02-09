@@ -887,8 +887,20 @@ class SimpleCavityEnv(gym.Env):
                     #a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
                     #a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
                     #a_file.close()
-                    with open(self.direc + "/../summaries/summary_" + info_cleaned + ".json", "w") as f:
-                        json.dump(self.__dict__, f)
+                    # with open(self.direc + "/../summaries/summary_" + info_cleaned + ".json", "w") as fp:
+                    #     print(self.__dict__)
+                    #     json.dump(self.__dict__, fp, indent = 4, separators = (", ", ": "), sort_keys = True)
+
+                    good_keys=['MsmtTrace', 'X', 'actions_plot', 'av_tries','best_reward','cavity',
+                               'fidelities','fidelity','integrals','observations','observations2',
+                               'probabilities','rew_init','rewards','scale','target_distrib',
+                               'tlist','tlist_mean']
+                    good={x: self.__dict__[x] for x in self.__dict__ if x in good_keys}
+                    np.save(self.direc + "/../summaries/summary_" + info_cleaned + ".npy", good)
+                    # import pickle
+                    # with open(self.direc + "/../summaries/summary_" + info_cleaned + ".json", 'w') as f:
+                    #     pickle.dump(self.__dict__, f)
+
 
                     self.figure.savefig(
                         self.direc + "/../current/current_status_" + info_cleaned + ".png")
