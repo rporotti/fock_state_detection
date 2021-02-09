@@ -831,6 +831,7 @@ class SimpleCavityEnv(gym.Env):
 
             # print(np.array(self.probs_final))
             bins = 200
+
             self.ax_histo_cumulative.collections.clear()
             self.ax_histo_cumulative.lines[0].set_data(x, self.probs_final)
             self.ax_histo_cumulative.set_xlim(1, self.ep * self.ntraj)
@@ -894,7 +895,9 @@ class SimpleCavityEnv(gym.Env):
                     good_keys=['MsmtTrace', 'X', 'actions_plot', 'av_tries','best_reward','cavity',
                                'fidelities','fidelity','integrals','observations','observations2',
                                'probabilities','rew_init','rewards','scale','target_distrib',
-                               'tlist','tlist_mean']
+                               'tlist','tlist_mean','total_rewards', 'std_rewards',
+                               'probs_final', 'ep', 'ntraj', 'probs_final', 'std_probs_final', 't_mean']
+                    print(self.__dict__.keys())
                     good={x: self.__dict__[x] for x in self.__dict__ if x in good_keys}
                     np.save(self.direc + "/../summaries/summary_" + info_cleaned + ".npy", good)
                     # import pickle
