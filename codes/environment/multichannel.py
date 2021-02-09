@@ -191,6 +191,7 @@ class SimpleCavityEnv(gym.Env):
         self.scale = np.sqrt(self.kappa_meas)
         self.continuos_meas_rate=dic["continuos_meas_rate"]
         self.name_folder=dic["name_folder"]
+        self.t_mean=dic["t_mean"]
 
         if not self.testing:
             if self.counter == 0 and self.rank == 0:
@@ -595,15 +596,13 @@ class SimpleCavityEnv(gym.Env):
         dpi = 150
         plt.rcParams.update({'font.size': 8})
         plt.rcParams.update({'figure.dpi': dpi})
-        self.figure = plt.figure(figsize=(8, 6), constrained_layout=True)
+        self.figure = plt.figure(figsize=(8, 5), constrained_layout=True)
         self.axes_obs = np.zeros((2, 4), dtype="object")
         #self.axes_integral = np.zeros((2, 4), dtype="object")
-        if self.testing:
-            gs = self.figure.add_gridspec(4, 8)
-            offset = 0
-        else:
-            gs = self.figure.add_gridspec(5, 8)
-            offset = 1
+        self.tlist_mean = np.linspace(0, self.T_max, int(self.T / self.t_mean))
+        gs = self.figure.add_gridspec(3, 8)
+        offset = 0
+
 
         self.ax_trace = self.figure.add_subplot(gs[offset, :-2])
         self.ax_histo = self.figure.add_subplot(gs[offset, -2])
@@ -613,11 +612,10 @@ class SimpleCavityEnv(gym.Env):
         self.ax_histo.set_xlim(0, 1)
         self.ax_histo.set_ylim(0, self.Nstates)
 
-        if self.testing:
-            self.axes_actions = self.figure.add_subplot(gs[1 + offset, :])
-        else:
-            self.axes_actions = self.figure.add_subplot(gs[1 + offset, :-2])
-            self.ax_reward = self.figure.add_subplot(gs[0, :])
+        self.axes_actions = self.figure.add_subplot(gs[1 + offset, :-2])
+
+        if not self.testing:
+            self.ax_reward = self.figure.add_subplot(gs[-1, -2:])
 
             self.ax_reward.set_xlabel('Trajectories')
             self.ax_reward.set_ylabel("Reward")
@@ -681,45 +679,62 @@ class SimpleCavityEnv(gym.Env):
             self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$|\alpha|$")
             self.axes_actions.set_ylabel(r"$|\alpha|$", labelpad=0);
         if self.num_actions > 1:
-            self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$")
-            self.axes_actions.step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$")
+            self.axes_actions.step(self.tlist, appo, lw=lw, color="red", label=r"$Re[\alpha]$", alpha=0.5)
+            self.axes_actions.step(self.tlist, appo, lw=lw, color="blue", label=r"$Im[\alpha]$", alpha=0.5)
             self.axes_actions.set_ylabel(r"$Re[\alpha], Im[\alpha]$", labelpad=0);
         self.axes_actions.legend()
         self.axes_actions.set_xlim(0, self.tlist[-1])
 
         self.axes_actions.set_xlabel(r"t [$1/\kappa_{meas}$]");
 
-        for count in range(self.N):
-            i = int(count / 4)
-            j = count % 4
-            if j == 0:
-                self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2])
-                self.axes_obs[i, j].set_ylabel(r"Signal [$\sqrt{\kappa_{meas}}$]")
-            else:
-                self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2],
-                                                               sharey=self.axes_obs[-2 + i, j - 1])
-                plt.setp(self.axes_obs[-2 + i, j].get_yticklabels(), visible=False)
-            if i == 0:
-                plt.setp(self.axes_obs[-2 + i, j].get_xticklabels(), visible=False)
-            if i == 1:
-                self.axes_obs[i, j].set_xlabel(r"t [$1/\kappa_{meas}$]")
-            self.axes_obs[i, j].set_xlim(0, self.tlist[-1])
+        if self.num_actions > 2:
+            self.axes_meas=self.figure.add_subplot(gs[offset+2, :-2])
+            self.axes_meas.set_xlabel(r"t [$1/\kappa_{meas}$]")
+            self.axes_meas.set_xlim(0, self.tlist[-1])
+            appo_mean = np.full(int(self.T / self.t_mean), None)
+            for act in range(self.num_actions-2):
 
-            if self.filter:
-                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, alpha=0.3)
-                for l in range(self.size_filters):
-                    self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
-            else:
-                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
-            if self.num_actions>2 and count<self.num_actions-2:
-                self.axes_obs[i, j].step(self.tlist, appo, lw=3*lw, alpha=0.5, color="gray")
-            # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
-            # self.axes_integral[-2+i,j].plot([],[] ,color="red")
+                self.axes_meas.hlines(act, 0, self.tlist[-1], color="gray", linestyle="dashed", alpha=0.5)
+                self.axes_meas.hlines(act + 0.5, 0, self.tlist[-1], color="gray", linestyle="dashed", alpha=0.5)
+                self.axes_meas.fill_between(self.tlist,act, act + 0.5, alpha=0.1, color="gray")
 
-            if self.meas_type == "heterodyne":
-                self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, color="red")
-            self.axes_obs[i, j].set_xlim(self.tlist[0], self.tlist[-1])
-            # self.axes[-2+i,j].set_ylabel("Ch "+str(count+1), labelpad=0);
+
+                self.axes_meas.step(self.tlist_mean, appo_mean, color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act])
+                self.axes_meas.step(self.tlist, appo, alpha=0.3, color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act])
+            self.axes_meas.set_ylim(0, self.num_actions-2.5)
+            self.axes_meas.set_yticks(np.arange(0,self.num_actions-2))
+            #plt.setp(self.axes_meas.get_yticklabels(), visible=False)
+        # for count in range(self.N):
+        #     i = int(count / 4)
+        #     j = count % 4
+        #     if j == 0:
+        #         self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2])
+        #         self.axes_obs[i, j].set_ylabel(r"Signal [$\sqrt{\kappa_{meas}}$]")
+        #     else:
+        #         self.axes_obs[i, j] = self.figure.add_subplot(gs[-2 + i, j * 2:(j + 1) * 2],
+        #                                                        sharey=self.axes_obs[-2 + i, j - 1])
+        #         plt.setp(self.axes_obs[-2 + i, j].get_yticklabels(), visible=False)
+        #     if i == 0:
+        #         plt.setp(self.axes_obs[-2 + i, j].get_xticklabels(), visible=False)
+        #     if i == 1:
+        #         self.axes_obs[i, j].set_xlabel(r"t [$1/\kappa_{meas}$]")
+        #     self.axes_obs[i, j].set_xlim(0, self.tlist[-1])
+        #
+        #     if self.filter:
+        #         self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, alpha=0.3)
+        #         for l in range(self.size_filters):
+        #             self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
+        #     else:
+        #         self.axes_obs[i, j].plot(self.tlist, appo, lw=lw)
+        #     if self.num_actions>2 and count<self.num_actions-2:
+        #         self.axes_obs[i, j].step(self.tlist, appo, lw=3*lw, alpha=0.5, color="gray")
+        #     # self.axes_integral[-2+i,j] = self.axes[-2+i,j].twinx()
+        #     # self.axes_integral[-2+i,j].plot([],[] ,color="red")
+        #
+        #     if self.meas_type == "heterodyne":
+        #         self.axes_obs[i, j].plot(self.tlist, appo, lw=lw, color="red")
+        #     self.axes_obs[i, j].set_xlim(self.tlist[0], self.tlist[-1])
+        #     # self.axes[-2+i,j].set_ylabel("Ch "+str(count+1), labelpad=0);
 
         # self.axes[self.offset,2].plot(self.tlist, appo,lw=lw, color="red", label="Purity")
         # self.axes[-2,2].legend()
@@ -782,8 +797,14 @@ class SimpleCavityEnv(gym.Env):
         count = 0
         self.axes_actions.lines[0].set_xdata(self.tlist)
         self.axes_actions.lines[0].set_ydata(self.actions_plot[0, :])
+
+        self.axes_actions.step(self.tlist_mean, np.mean(self.actions_plot[0, :].reshape(-1, self.t_mean), axis=1), color='red')
         if self.num_actions > 1:
             self.axes_actions.lines[1].set_ydata(self.actions_plot[1, :])
+            self.axes_actions.step(self.tlist_mean, np.mean(self.actions_plot[1, :].reshape(-1, self.t_mean), axis=1), color='blue')
+
+
+
 
         self.axes_actions.set_ylim(-1.1 * np.max(np.abs(self.actions_plot[:2]))-1E-1, np.max(np.abs(self.actions_plot[:2])) * 1.1+1E-1)
         for rect, w in zip(self.rects, np.flip(self.probabilities[:, -1])):
@@ -813,42 +834,52 @@ class SimpleCavityEnv(gym.Env):
                                         np.subtract(self.probs_final, self.std_probs_final),
                                         np.add(self.probs_final, self.std_probs_final), alpha=0.2, color="blue")
             #self.ax_histo_cumulative.lines[1].set_data(x, self.fid_finals)
-        for count in range(self.N):
-            i = int(count / 4)
-            j = count % 4
-
-            self.axes_obs[i, j].lines[0].set_xdata(self.tlist)
-            self.axes_obs[i, j].lines[0].set_ydata(self.observations[:, 0, count])
-            if self.filter:
-                for l in range(self.size_filters):
-                    self.axes_obs[i, j].lines[l + 1].set_ydata(self.observations_filters[:, l, 0, count])
-            if self.meas_type == "heterodyne":
-                self.axes_obs[i, j].lines[1].set_ydata(self.observations[:, 1, count])
-            maxim = np.max(np.abs(self.observations))
-            self.axes_obs[i, j].set_ylim(-maxim * 1.1-1E-2, maxim * 1.1+1E-2)
+        if self.num_actions > 2:
+            for act in range(self.num_actions-2):
+                self.axes_meas.lines[int((2*act))].set_xdata(self.tlist_mean)
+                self.appo_mean = np.mean(self.actions_plot[act + 2, :].reshape(-1, self.t_mean), axis=1) / 2 + act
+                self.axes_meas.lines[int((2*act))].set_ydata(self.appo_mean)
+                self.axes_meas.lines[int((2 * act))+1].set_xdata(self.tlist)
+                self.axes_meas.lines[int((2*act))+1].set_ydata(self.actions_plot[act + 2, :]/2+act)
 
 
-            if self.num_actions>2 and count<self.num_actions-2:
-                self.axes_obs[i, j].lines[-1].set_xdata(self.tlist)
-                self.axes_obs[i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
-            #
-            # self.axes_integral[-2+i,j].lines[0].set_xdata(self.tlist )
-            # self.axes_integral[-2+i,j].lines[0].set_ydata(np.array(self.integrals)[:,0,count] )
-            # self.axes_integral[-2+i,j].set_ylim(-np.max(np.abs(self.integrals))-0.1,np.max(np.abs(self.integrals))+0.1)
-            # print(np.mean(self.observations[:,0],axis=0))
 
 
-            # self.ax_reward.set_xlim(1,len(self.total_rewards))
+        # for count in range(self.N):
+        #     i = int(count / 4)
+        #     j = count % 4
+        #
+        #     self.axes_obs[i, j].lines[0].set_xdata(self.tlist)
+        #     self.axes_obs[i, j].lines[0].set_ydata(self.observations[:, 0, count])
+        #     if self.filter:
+        #         for l in range(self.size_filters):
+        #             self.axes_obs[i, j].lines[l + 1].set_ydata(self.observations_filters[:, l, 0, count])
+        #     if self.meas_type == "heterodyne":
+        #         self.axes_obs[i, j].lines[1].set_ydata(self.observations[:, 1, count])
+        #     maxim = np.max(np.abs(self.observations))
+        #     self.axes_obs[i, j].set_ylim(-maxim * 1.1-1E-2, maxim * 1.1+1E-2)
+        #
+        #
+        #     if self.num_actions>2 and count<self.num_actions-2:
+        #         self.axes_obs[i, j].lines[-1].set_xdata(self.tlist)
+        #         self.axes_obs[i, j].lines[-1].set_ydata(maxim*self.actions_plot[count+2, :])
+        #     #
+        #     # self.axes_integral[-2+i,j].lines[0].set_xdata(self.tlist )
+        #     # self.axes_integral[-2+i,j].lines[0].set_ydata(np.array(self.integrals)[:,0,count] )
+        #     # self.axes_integral[-2+i,j].set_ylim(-np.max(np.abs(self.integrals))-0.1,np.max(np.abs(self.integrals))+0.1)
+        #     # print(np.mean(self.observations[:,0],axis=0))
+        #
+        #
+        #     # self.ax_reward.set_xlim(1,len(self.total_rewards))
 
         if not self.testing:
             self.figure.savefig(self.direc + "/" + str(self.ep) + "_reward.png")
             if self.ep % self.save_every == 0:
                 if self.folder != "":
                     if self.name_folder!="":
-                        info_cleaned=self.name_folder
+                        info_cleaned=self.name_folder+'_'+self.direc.split("_")[-1]
                     else:
                         info_cleaned="_".join(self.info.split("_")[2:])
-                    print(info_cleaned)
                     #a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
                     #a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
                     with open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", 'w') as f:

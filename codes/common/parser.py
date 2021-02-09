@@ -28,6 +28,7 @@ parser.add_argument('--discrete', action="store_true", help='Discrete actions')
 parser.add_argument('--num_actions', type=int, default=2, help='Num of actions')
 parser.add_argument('--capped_to_zero', action="store_true")
 parser.add_argument('--size_filters', type=int, default=1)
+parser.add_argument('--t_mean', type=int, default=10)
 
 parser.add_argument('--mode', type=str, default="script", help='Script or cluster (default at script)')
 parser.add_argument('--library', type=str, default="SB", help='SB for stable_baselines, SU for spinning_up (default at stable_baselines)')
