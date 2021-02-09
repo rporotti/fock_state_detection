@@ -848,9 +848,12 @@ class SimpleCavityEnv(gym.Env):
                         info_cleaned=self.name_folder
                     else:
                         info_cleaned="_".join(self.info.split("_")[2:])
-                    a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
-                    a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
-                    a_file.close()
+                    print(info_cleaned)
+                    #a_file = open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", "a")
+                    #a_file.write(str(np.round(self.probs_final[-1], 5))+"\n")
+                    with open(self.direc + "/../summaries/summary_" + info_cleaned + ".txt", 'w') as f:
+                        print(self.__dict__, file=f)
+                    #a_file.close()
 
                     self.figure.savefig(
                         self.direc + "/../current/current_status_" + info_cleaned + ".png")
