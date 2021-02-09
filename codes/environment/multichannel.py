@@ -6,7 +6,7 @@ import gym
 gym.logger.set_level(40)
 import numpy as np
 import qutip as qt
-from codes.functions.functions import split_string, create_dir, create_info, print_info
+from codes.functions.functions import generate_state, create_dir, create_info, print_info
 from scipy import linalg
 import copy
 import scipy
@@ -171,9 +171,9 @@ class SimpleCavityEnv(gym.Env):
         self.capped = dic["capped_to_zero"]
         self.size_filters = dic["size_filters"]
         self.power_reward = dic["power_reward"]
-        psi_init = split_string(self.Nstates, dic["init_state"])
+        psi_init = generate_state(self.Nstates, dic["init_state"])
         self.Rho_initial = psi_init.proj().full()
-        psi_target = split_string(self.Nstates, dic["target_state"])
+        psi_target = generate_state(self.Nstates, dic["target_state"])
         self.Rho_target = psi_target.proj().full()
 
         self.RL_steps = int(dic["RL_steps"])

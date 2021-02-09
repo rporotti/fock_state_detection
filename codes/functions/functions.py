@@ -5,6 +5,8 @@ import sys
 import subprocess
 import qutip as qt
 from mpi4py import MPI
+import re
+import numpy as np
 
 def create_dir(args):
     
@@ -78,7 +80,7 @@ def create_info(args):
 
     if args["HER"]:
         info+="_HER"
-
+    info=info.replace('(','').replace(')','').replace('|','').replace('>','').replace('*','')
     return info
 
 
@@ -113,3 +115,26 @@ def split_string(N_states,s):
         for item in l:
             state+=qt.basis(N_states,int(item))
         return state.unit()
+
+
+def generate_state(N_states, state_str):
+    if "|" in state_str:
+        state = qt.Qobj()
+        for s in re.split('[- +]', state_str):
+            fock_state = int(s.split("|")[-1].replace(">", ""))
+            if s.split("|")[0] != "":
+                coeff = eval(s.split("|")[:-1][0])
+            else:
+                coeff = 1
+            state += coeff * qt.fock(N_states, fock_state)
+
+    else:
+        s = str(state_str)
+        if s.isdigit():
+            return qt.basis(N_states, int(s))
+        else:
+            l = s.split("+")
+            state = 0
+            for item in l:
+                state += qt.basis(N_states, int(item))
+    return state.unit()
