@@ -619,8 +619,8 @@ class SimpleCavityEnv(gym.Env):
 
             self.ax_reward.set_xlabel('Trajectories')
             self.ax_reward.set_ylabel("Reward")
+            self.ax_reward.set_ylim(0, 1)
 
-            self.ax_histo_cumulative = self.figure.add_subplot(gs[1 + offset, -2:])
 
             #self.ax_histo2.get_xaxis().set_visible(False)
             #self.ax_histo_cumulative.get_yaxis().set_visible(False)
@@ -628,7 +628,9 @@ class SimpleCavityEnv(gym.Env):
             #self.ax_histo_cumulative.set_xticklabels([])
             #self.ax_histo_cumulative.set_ylabel("# cases")
             #self.ax_histo_cumulative.set_ylabel("Fidelity")
+            self.ax_histo_cumulative = self.figure.add_subplot(gs[1 + offset, -2:])
             self.ax_histo_cumulative.set_ylim(0, 1)
+            self.ax_histo_cumulative.set_ylabel("Final fidelity")
 
         # self.ax_trace.yaxis.set_ticks_position('both')
         self.ax_trace.tick_params(axis='y', which='both', labelleft='on', labelright='on')
@@ -897,7 +899,7 @@ class SimpleCavityEnv(gym.Env):
                                'probabilities','rew_init','rewards','scale','target_distrib',
                                'tlist','tlist_mean','total_rewards', 'std_rewards',
                                'probs_final', 'ep', 'ntraj', 'probs_final', 'std_probs_final', 't_mean']
-                    print(self.__dict__.keys())
+
                     good={x: self.__dict__[x] for x in self.__dict__ if x in good_keys}
                     np.save(self.direc + "/../summaries/summary_" + info_cleaned + ".npy", good)
                     # import pickle

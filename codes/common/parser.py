@@ -68,6 +68,8 @@ parser.add_argument('--optim_batchsize', type=int, default=64)
 parser.add_argument('--gamma', type=float, default=0.99)
 parser.add_argument('--lam', type=float, default=0.95)
 parser.add_argument('--adam_epsilon', type=float, default=1e-05)
+parser.add_argument('--n_steps', type=int, default=128)
+parser.add_argument('--nminibatches', type=int, default=4)
 
 parser.add_argument('--RL_steps', type=float, default=1E6)
 parser.add_argument('--continuos_meas_rate', action="store_true")

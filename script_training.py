@@ -48,7 +48,8 @@ if __name__ == '__main__':
             env = SubprocVecEnv([make_env(args, dataset, q, i) for i in range(args.ntraj)], start_method="fork")
 
     if args.algorithm=="PPO2":
-        model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj)
+        model = stable_baselines.PPO2(policy, env, verbose=1, nminibatches=args.ntraj,
+                                      n_steps=args.n_steps, nminibatches=args.nminibatches)
     elif args.algorithm=="DDPG":
         model = stable_baselines.DDPG(policy, env, verbose=1, param_noise=param_noise, action_noise=action_noise)
     elif args.algorithm == "PPO1":
