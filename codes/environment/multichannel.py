@@ -822,7 +822,6 @@ class SimpleCavityEnv(gym.Env):
 
             x = np.linspace(1, self.ep * self.ntraj, len(self.total_rewards))
             self.ax_reward.lines[0].set_data(x, self.total_rewards)
-            self.ax_reward.set_ylim(0, max(self.total_rewards) + 1)
             self.ax_reward.set_xlim(1, self.ep * self.ntraj)
             self.ax_reward.collections.clear()
             self.ax_reward.fill_between(x,
