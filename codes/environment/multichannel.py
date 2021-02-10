@@ -827,6 +827,8 @@ class SimpleCavityEnv(gym.Env):
             self.ax_reward.fill_between(x,
                                         np.subtract(self.total_rewards, self.std_rewards),
                                         np.add(self.total_rewards, self.std_rewards), alpha=0.2, color="blue")
+            self.ax_reward.set_ylim(0,
+                                    max(np.add(self.total_rewards, self.std_rewards)))
 
             # print(np.array(self.probs_final))
             bins = 200
