@@ -74,7 +74,7 @@ parser.add_argument('--nminibatches', type=int, default=4)
 parser.add_argument('--RL_steps', type=float, default=1E6)
 parser.add_argument('--continuos_meas_rate', action="store_true")
 
-
+parser.add_argument('--max_displ', type=float, help="New way of handling max displacement")
 parser.add_argument('--main_folder', type=str, default="/ptmp/pori/simulations", help='Main folder')
 
 #args = parser.parse_args()

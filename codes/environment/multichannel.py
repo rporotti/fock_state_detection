@@ -161,10 +161,6 @@ class SimpleCavityEnv(gym.Env):
         self.kappa_meas = dic["meas_rate"]  # measured channel
         self.kappa_dephasing = dic["dephasing"]  # measured channel
         self.numberPhysicsMicroSteps = dic["substeps"]  # micro steps per action/RL step
-        self.T = dic["timesteps"]  # total time span
-        self.T_max = dic["T_max"]
-        if self.kappa_meas > 0:
-            self.T_max *= self.kappa_meas
         self.obs = dic["obs"]
         self.meas_type = dic["meas"]
         self.num_actions = dic["num_actions"]
@@ -175,15 +171,34 @@ class SimpleCavityEnv(gym.Env):
         self.Rho_initial = psi_init.proj().full()
         psi_target = generate_state(self.Nstates, dic["target_state"])
         self.Rho_target = psi_target.proj().full()
-
         self.RL_steps = int(dic["RL_steps"])
 
-        self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps) / self.kappa_meas
-        self.fixed_seed = dic["fixed_seed"]
-        self.multiplier = float(dic["multiplier"])
-        self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
+        self.T = dic["timesteps"]
+        if dic["max_displ"]:
+            self.max_displ=dic["max_displ"]
+            self.T_max = dic["T_max"]
 
-        self.tlist = np.linspace(0, self.T_max, self.T)
+            self.dt = 1 / (self.T * self.numberPhysicsMicroSteps)
+            #self.max_displ_per_step = self.max_displ / self.T * self.numberPhysicsMicroSteps * self.numberPhysicsMicroSteps
+            self.max_displ_per_step = self.max_displ * self.T_max
+
+            # if self.kappa_meas > 0:
+            #     self.T_max *= self.kappa_meas
+            #print(self.max_displ_per_step, self.dt, self.T)
+        else:
+            self.T_max = dic["T_max"]
+            self.dt = self.T_max / (self.T * self.numberPhysicsMicroSteps)
+            self.multiplier = float(dic["multiplier"])
+            self.max_displ_per_step = self.multiplier / (self.T * self.numberPhysicsMicroSteps)
+
+        self.t_mean = dic["t_mean"]
+        self.fixed_seed = dic["fixed_seed"]
+        if self.kappa_meas>0:
+            T_max=self.T_max * self.kappa_meas
+        else:
+            T_max = self.T_max
+        self.tlist = np.linspace(0, T_max, self.T)
+        self.tlist_mean = np.linspace(0, T_max, int(self.T / self.t_mean))
         self.last_timesteps = dic["last_timesteps"]
         self.filter = dic["filter"]
         self.discrete = dic["discrete"]
@@ -191,7 +206,7 @@ class SimpleCavityEnv(gym.Env):
         self.scale = np.sqrt(self.kappa_meas)
         self.continuos_meas_rate=dic["continuos_meas_rate"]
         self.name_folder=dic["name_folder"]
-        self.t_mean=dic["t_mean"]
+
 
         if not self.testing:
             if self.counter == 0 and self.rank == 0:
@@ -318,6 +333,7 @@ class SimpleCavityEnv(gym.Env):
                     number=int("".join([str(int(i)) for i in appo]),2)
                     P=self.P[number]
                     H0=self.H0[number]
+
 
         H_displacement = -1j * (alpha * self.adOp - np.conj(alpha) * self.aOp) / 2
         H = np.add(H_displacement,H0)
@@ -599,7 +615,7 @@ class SimpleCavityEnv(gym.Env):
         self.figure = plt.figure(figsize=(8, 5), constrained_layout=True)
         self.axes_obs = np.zeros((2, 4), dtype="object")
         #self.axes_integral = np.zeros((2, 4), dtype="object")
-        self.tlist_mean = np.linspace(0, self.T_max, int(self.T / self.t_mean))
+
         gs = self.figure.add_gridspec(3, 8)
         offset = 0
 
@@ -691,11 +707,15 @@ class SimpleCavityEnv(gym.Env):
         self.axes_actions.legend()
         self.axes_actions.set_xlim(0, self.tlist[-1])
 
-        self.axes_actions.set_xlabel(r"t [$1/\kappa_{meas}$]");
-
+        if self.kappa_meas>0:
+            label=r"t [$1/\kappa_{meas}$]"
+        else:
+            label=r"t [$\alpha$]"
+        if self.num_actions <= 2:
+            self.axes_actions.set_xlabel(label);
         if self.num_actions > 2:
             self.axes_meas=self.figure.add_subplot(gs[offset+2, :-2])
-            self.axes_meas.set_xlabel(r"t [$1/\kappa_{meas}$]")
+            self.axes_meas.set_xlabel(label)
             self.axes_meas.set_xlim(0, self.tlist[-1])
 
             for act in range(self.num_actions-2):
