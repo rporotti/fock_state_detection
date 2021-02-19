@@ -724,9 +724,11 @@ class SimpleCavityEnv(gym.Env):
                 self.axes_meas.hlines(act + 0.5, 0, self.tlist[-1], color="gray", linestyle="dashed", alpha=0.5)
                 self.axes_meas.fill_between(self.tlist,act, act + 0.5, alpha=0.1, color="gray")
 
-
-                self.axes_meas.step(self.tlist_mean, appo_mean, color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act])
-                self.axes_meas.step(self.tlist, appo, alpha=0.3, color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act])
+                len_cycle=len(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+                self.axes_meas.step(self.tlist_mean, appo_mean,
+                                    color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act%len_cycle])
+                self.axes_meas.step(self.tlist, appo, alpha=0.3,
+                                    color=plt.rcParams['axes.prop_cycle'].by_key()['color'][act%len_cycle])
             self.axes_meas.set_ylim(0, self.num_actions-2.5)
             self.axes_meas.set_yticks(np.arange(0,self.num_actions-2))
             #plt.setp(self.axes_meas.get_yticklabels(), visible=False)
