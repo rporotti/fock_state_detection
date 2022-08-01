@@ -1,3 +1,7 @@
+# Deep Reinforcement Learning for Quantum State Preparation with Weak Nonlinear Measurements
+
+Supporting code for the [paper published on Quantum](https://quantum-journal.org/papers/q-2022-06-28-747/). 
+
 Usage:
 
 - Run sbatch mpi_sbatch.sh --target_state 2 for running training with MPI across 20 nodes
