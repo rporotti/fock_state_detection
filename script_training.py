@@ -1,8 +1,8 @@
 import sys
 import numpy as np
-from codes.common.parser import parser
-from codes.environment.multichannel import SimpleCavityEnv
-from codes.environment.pinnedsubprocvecenv import PinnedSubprocVecEnv
+from core.common.parser import parser
+from core.environment.multichannel import SimpleCavityEnv
+from core.environment.pinnedsubprocvecenv import PinnedSubprocVecEnv
 
 import stable_baselines
 from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecCheckNan, VecNormalize
