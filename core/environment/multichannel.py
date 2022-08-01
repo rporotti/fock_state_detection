@@ -6,7 +6,7 @@ import gym
 gym.logger.set_level(40)
 import numpy as np
 import qutip as qt
-from codes.functions.functions import generate_state, create_dir, create_info, print_info
+from core.functions.functions import generate_state, create_dir, create_info, print_info
 from scipy import linalg
 import copy
 import scipy
